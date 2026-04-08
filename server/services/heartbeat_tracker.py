@@ -13,6 +13,8 @@ class HeartbeatTracker:
     def __init__(self):
         self._heartbeats: dict[str, float] = {}   # service_name -> last_seen
         self._states: dict[str, dict] = {}         # service_name -> state dict
+        self._current_states: dict[str, str] = {}  # service_name -> current_state
+        self._error_infos: dict[str, str] = {}     # service_name -> error_info
         self._lock = threading.Lock()
 
     def record_heartbeat(self, service_name: str):
@@ -23,12 +25,22 @@ class HeartbeatTracker:
         with self._lock:
             self._states[service_name] = state
 
+    def record_current_state(self, service_name: str, current_state: str):
+        with self._lock:
+            self._current_states[service_name] = current_state
+
+    def record_error_info(self, service_name: str, error_info: str):
+        with self._lock:
+            self._error_infos[service_name] = error_info
+
     def get_snapshot(self) -> dict:
         """Return current status of all known services."""
         now = time.time()
         with self._lock:
             services = {}
-            all_names = set(self._heartbeats.keys()) | set(self._states.keys())
+            all_names = (set(self._heartbeats.keys())
+                         | set(self._states.keys())
+                         | set(self._current_states.keys()))
             for name in sorted(all_names):
                 last_seen = self._heartbeats.get(name)
                 alive = last_seen is not None and (now - last_seen) < 5.0
@@ -37,5 +49,7 @@ class HeartbeatTracker:
                     "last_seen": last_seen,
                     "age": round(now - last_seen, 1) if last_seen else None,
                     "state": self._states.get(name, {}),
+                    "current_state": self._current_states.get(name),
+                    "error_info": self._error_infos.get(name),
                 }
             return services

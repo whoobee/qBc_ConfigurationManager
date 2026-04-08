@@ -25,11 +25,15 @@ logger = logging.getLogger("qBc_ConfigMgr.mqtt")
 _ALWAYS_SUBSCRIBE = [
     "robot/system/heartbeat/#",
     "robot/+/state",
+    "robot/+/current_state",
+    "robot/+/error_info",
 ]
 
 # Heartbeat topic for this service
 TOPIC_HEARTBEAT = "robot/system/heartbeat/config_manager"
 TOPIC_STATE = "robot/config_manager/state"
+TOPIC_CURRENT_STATE = "robot/config_manager/current_state"
+TOPIC_ERROR_INFO = "robot/config_manager/error_info"
 
 
 class MqttBridge:
@@ -128,6 +132,8 @@ class MqttBridge:
             qos=1,
             retain=True,
         )
+        client.publish(TOPIC_CURRENT_STATE, "running", qos=1, retain=True)
+        client.publish(TOPIC_ERROR_INFO, "E_OK", qos=1, retain=True)
 
     def _on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties):
         self._connected = False

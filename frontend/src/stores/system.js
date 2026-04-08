@@ -19,7 +19,7 @@ export const useSystemStore = defineStore('system', () => {
     unsubs.push(mqtt.subscribe('robot/system/heartbeat/#', (topic, payload) => {
       const name = topic.split('/').pop()
       if (!services[name]) {
-        services[name] = { alive: true, lastSeen: Date.now(), age: 0, state: {} }
+        services[name] = { alive: true, lastSeen: Date.now(), age: 0, state: {}, currentState: null, errorInfo: null }
       }
       services[name].lastSeen = Date.now()
       services[name].alive = true
@@ -30,9 +30,27 @@ export const useSystemStore = defineStore('system', () => {
       const parts = topic.split('/')
       const name = parts[1]
       if (!services[name]) {
-        services[name] = { alive: false, lastSeen: null, age: null, state: {} }
+        services[name] = { alive: false, lastSeen: null, age: null, state: {}, currentState: null, errorInfo: null }
       }
       services[name].state = payload
+    }))
+
+    unsubs.push(mqtt.subscribe('robot/+/current_state', (topic, payload) => {
+      const parts = topic.split('/')
+      const name = parts[1]
+      if (!services[name]) {
+        services[name] = { alive: false, lastSeen: null, age: null, state: {}, currentState: null, errorInfo: null }
+      }
+      services[name].currentState = typeof payload === 'string' ? payload : String(payload)
+    }))
+
+    unsubs.push(mqtt.subscribe('robot/+/error_info', (topic, payload) => {
+      const parts = topic.split('/')
+      const name = parts[1]
+      if (!services[name]) {
+        services[name] = { alive: false, lastSeen: null, age: null, state: {}, currentState: null, errorInfo: null }
+      }
+      services[name].errorInfo = typeof payload === 'string' ? payload : String(payload)
     }))
 
     // Age tracker - mark services dead if no heartbeat for 5s

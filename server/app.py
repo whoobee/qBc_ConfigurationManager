@@ -44,7 +44,7 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
     _orig_on_message = mqtt_bridge._on_message
 
     def _tracked_on_message(client, userdata, msg):
-        # Track heartbeats and state
+        # Track heartbeats, state, current_state, and error_info
         topic = msg.topic
         if topic.startswith("robot/system/heartbeat/"):
             name = topic.rsplit("/", 1)[-1]
@@ -58,6 +58,18 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
                     heartbeat_tracker.record_state(name, state)
                 except Exception:
                     pass
+        elif topic.endswith("/current_state"):
+            parts = topic.split("/")
+            if len(parts) >= 3:
+                name = parts[1]
+                value = msg.payload.decode("utf-8", errors="replace")
+                heartbeat_tracker.record_current_state(name, value)
+        elif topic.endswith("/error_info"):
+            parts = topic.split("/")
+            if len(parts) >= 3:
+                name = parts[1]
+                value = msg.payload.decode("utf-8", errors="replace")
+                heartbeat_tracker.record_error_info(name, value)
         _orig_on_message(client, userdata, msg)
 
     mqtt_bridge._on_message = _tracked_on_message

@@ -42,6 +42,8 @@
         :alive="svc.alive"
         :age="svc.age"
         :state="svc.state"
+        :currentState="svc.currentState"
+        :errorInfo="svc.errorInfo"
       />
     </div>
   </div>

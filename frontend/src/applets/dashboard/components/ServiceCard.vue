@@ -7,13 +7,23 @@
         {{ alive ? `${age}s` : `${age}s ago` }}
       </span>
     </div>
+    <div class="card-status-bar" v-if="currentState || errorInfo">
+      <div class="status-item" v-if="currentState">
+        <span class="status-label mono text-xs">STATE</span>
+        <span class="status-value mono text-xs text-glow">{{ currentState }}</span>
+      </div>
+      <div class="status-item" v-if="errorInfo">
+        <span class="status-label mono text-xs">ERROR</span>
+        <span class="status-value mono text-xs" :class="errorInfo === 'E_OK' ? 'val-ok' : 'val-err'">{{ errorInfo }}</span>
+      </div>
+    </div>
     <div class="card-body" v-if="state && Object.keys(state).length">
       <div class="state-row" v-for="(val, key) in state" :key="key">
         <span class="state-key mono text-xs">{{ key }}</span>
         <span class="state-val mono text-xs" :class="stateClass(key, val)">{{ formatVal(val) }}</span>
       </div>
     </div>
-    <div class="card-body text-xs text-dim" v-else>
+    <div class="card-body text-xs text-dim" v-else-if="!currentState && !errorInfo">
       No state data
     </div>
     <!-- Animated border accent -->
@@ -29,6 +39,8 @@ const props = defineProps({
   alive: Boolean,
   age: Number,
   state: Object,
+  currentState: String,
+  errorInfo: String,
 })
 
 const displayName = computed(() => {
@@ -75,6 +87,27 @@ function stateClass(key, val) {
 }
 .service-age {
   flex-shrink: 0;
+}
+
+.card-status-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 14px;
+  background: rgba(0, 255, 200, 0.03);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.status-label {
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+.status-value {
+  color: var(--text-primary);
 }
 
 .card-body {
