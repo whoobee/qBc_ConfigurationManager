@@ -1,0 +1,256 @@
+/* ================================================================
+   qB Companion — Blueprint Global Styles
+   ================================================================ */
+
+@import './variables.css';
+
+/* ── Reset & Base ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #app {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--text-heading);
+  font-weight: 400;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  background-image:
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-bright);
+}
+
+/* ── Typography ── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--text-heading);
+  font-weight: 600;
+  color: var(--text-bright);
+  letter-spacing: 0.5px;
+}
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.3rem; }
+h3 { font-size: 1.1rem; }
+
+code, pre, .mono {
+  font-family: var(--text-mono);
+  font-size: 0.85rem;
+}
+
+a {
+  color: var(--glow-primary);
+  text-decoration: none;
+}
+
+/* ── Blueprint Card ── */
+.bp-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm), var(--shadow-inset);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.bp-card:hover {
+  border-color: var(--border-bright);
+  box-shadow: var(--shadow-md);
+}
+.bp-card-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--text-heading);
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-accent);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+.bp-card-body {
+  padding: 16px;
+}
+
+/* ── Blueprint Button ── */
+.bp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-family: var(--text-heading);
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--glow-primary);
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+.bp-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(0,212,255,0.06), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+.bp-btn:hover {
+  border-color: var(--glow-primary);
+  box-shadow: var(--shadow-md), inset 0 0 20px rgba(0,212,255,0.06);
+  color: var(--text-bright);
+}
+.bp-btn:hover::before { opacity: 1; }
+
+.bp-btn:active {
+  transform: scale(0.97);
+}
+
+.bp-btn-primary {
+  background: rgba(0, 212, 255, 0.1);
+  border-color: var(--border-bright);
+}
+.bp-btn-danger {
+  color: var(--glow-danger);
+  border-color: rgba(255, 51, 102, 0.3);
+}
+.bp-btn-danger:hover {
+  border-color: var(--glow-danger);
+  box-shadow: 0 0 16px rgba(255,51,102,0.15);
+}
+.bp-btn-success {
+  color: var(--glow-success);
+  border-color: rgba(0, 255, 136, 0.3);
+}
+
+/* ── Status Dot ── */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.status-dot.alive {
+  background: var(--glow-success);
+  box-shadow: 0 0 8px var(--glow-success);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+.status-dot.dead {
+  background: var(--glow-danger);
+  box-shadow: 0 0 8px var(--glow-danger);
+}
+.status-dot.unknown {
+  background: var(--bt-invalid);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Scan Line (eye candy) ── */
+.scanline-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 212, 255, 0.015) 2px,
+    rgba(0, 212, 255, 0.015) 4px
+  );
+}
+
+/* ── Corner Brackets (decorative) ── */
+.bp-corners {
+  position: relative;
+}
+.bp-corners::before,
+.bp-corners::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: var(--glow-primary);
+  border-style: solid;
+  opacity: 0.4;
+}
+.bp-corners::before {
+  top: -1px;
+  left: -1px;
+  border-width: 2px 0 0 2px;
+}
+.bp-corners::after {
+  bottom: -1px;
+  right: -1px;
+  border-width: 0 2px 2px 0;
+}
+
+/* ── Glow text ── */
+.text-glow {
+  text-shadow: 0 0 10px rgba(0, 212, 255, 0.5), 0 0 40px rgba(0, 212, 255, 0.15);
+}
+
+/* ── Animated border ── */
+@keyframes border-flow {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
+}
+.bp-border-animated {
+  border-image: linear-gradient(
+    90deg,
+    var(--border-subtle),
+    var(--glow-primary),
+    var(--border-subtle)
+  ) 1;
+  animation: border-flow 3s linear infinite;
+}
+
+/* ── Utility ── */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-1 { flex: 1; }
+.gap-1 { gap: 4px; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.overflow-hidden { overflow: hidden; }
+.overflow-auto { overflow: auto; }
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.p-2 { padding: 8px; }
+.p-3 { padding: 12px; }
+.p-4 { padding: 16px; }
+.text-sm { font-size: 0.85rem; }
+.text-xs { font-size: 0.75rem; }
+.text-dim { color: var(--text-dim); }
+.text-accent { color: var(--text-accent); }

@@ -1,0 +1,40 @@
+/* ================================================================
+   LiteGraph.js Blueprint Theme Override
+   ================================================================ */
+
+.litegraph .litecontextmenu {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-bright) !important;
+  color: var(--text-primary) !important;
+  box-shadow: var(--shadow-lg) !important;
+  font-family: var(--text-heading) !important;
+}
+
+.litegraph .litecontextmenu .litemenu-entry {
+  color: var(--text-primary) !important;
+  padding: 6px 16px !important;
+}
+
+.litegraph .litecontextmenu .litemenu-entry:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-accent) !important;
+}
+
+.litegraph .litecontextmenu .litemenu-entry.separator {
+  border-bottom: 1px solid var(--border-subtle) !important;
+}
+
+/* Dialog overrides */
+.litegraph .litegraph-dialog {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-bright) !important;
+  color: var(--text-primary) !important;
+}
+
+.litegraph .litegraph-dialog input,
+.litegraph .litegraph-dialog textarea,
+.litegraph .litegraph-dialog select {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-default) !important;
+  color: var(--text-primary) !important;
+}

@@ -1,0 +1,73 @@
+/* ================================================================
+   qB Companion — Blueprint / Holographic Theme Variables
+   Inspired by Tony Stark's Iron Man UI
+   ================================================================ */
+
+:root {
+  /* ── Core palette ── */
+  --bg-primary:    #060a14;
+  --bg-secondary:  #0b1121;
+  --bg-card:       #0d1526;
+  --bg-elevated:   #111d35;
+  --bg-hover:      #152544;
+
+  /* ── Glow accent colors ── */
+  --glow-primary:   #00d4ff;
+  --glow-secondary: #0088ff;
+  --glow-tertiary:  #4dabf7;
+  --glow-success:   #00ff88;
+  --glow-danger:    #ff3366;
+  --glow-warning:   #f9e2af;
+  --glow-running:   #00d4ff;
+  --glow-purple:    #b197fc;
+
+  /* ── Text ── */
+  --text-primary:  #c8d6e5;
+  --text-bright:   #e8f0fe;
+  --text-dim:      #4a6785;
+  --text-accent:   #00d4ff;
+  --text-mono:     'Share Tech Mono', monospace;
+  --text-heading:  'Rajdhani', sans-serif;
+
+  /* ── Borders ── */
+  --border-subtle:  rgba(0, 212, 255, 0.08);
+  --border-default: rgba(0, 212, 255, 0.15);
+  --border-bright:  rgba(0, 212, 255, 0.35);
+  --border-glow:    rgba(0, 212, 255, 0.5);
+
+  /* ── Grid ── */
+  --grid-color: rgba(0, 136, 255, 0.04);
+  --grid-size:  40px;
+
+  /* ── Shadows / Glow ── */
+  --shadow-sm:     0 0 8px  rgba(0, 212, 255, 0.08);
+  --shadow-md:     0 0 16px rgba(0, 212, 255, 0.12);
+  --shadow-lg:     0 0 30px rgba(0, 212, 255, 0.18);
+  --shadow-glow:   0 0 20px rgba(0, 212, 255, 0.25), 0 0 60px rgba(0, 212, 255, 0.08);
+  --shadow-inset:  inset 0 0 30px rgba(0, 212, 255, 0.04);
+
+  /* ── Layout ── */
+  --sidebar-width:  220px;
+  --topbar-height:  48px;
+  --radius-sm:      4px;
+  --radius-md:      8px;
+  --radius-lg:      12px;
+
+  /* ── Transition ── */
+  --transition-fast: 0.15s ease;
+  --transition-med:  0.3s ease;
+  --transition-slow: 0.6s ease;
+
+  /* ── BT Node type colors (from theme.py) ── */
+  --bt-composite:  #4a90d9;
+  --bt-decorator:  #9b59b6;
+  --bt-condition:  #f1c40f;
+  --bt-action:     #2ecc71;
+  --bt-timer:      #27ae60;
+
+  /* ── BT Status colors ── */
+  --bt-success: #00ff88;
+  --bt-failure: #ff3366;
+  --bt-running: #00d4ff;
+  --bt-invalid: #666666;
+}
