@@ -95,6 +95,36 @@
       </div>
     </div>
 
+    <!-- Language -->
+    <h3 class="section-title section-gap">
+      <svg class="section-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M7 2a1 1 0 011 1v1h4V3a1 1 0 112 0v1h1a2 2 0 012 2v2H3V6a2 2 0 012-2h1V3a1 1 0 011-1zM3 10h14v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5zm4 2a1 1 0 100 2h6a1 1 0 100-2H7z"/>
+      </svg>
+      AI Language
+    </h3>
+
+    <div class="volume-card bp-card bp-corners">
+      <div class="volume-row">
+        <div class="volume-header">
+          <span class="volume-label">Robot Language</span>
+          <span class="volume-hint">Controls STT, LLM response language, and TTS voice</span>
+        </div>
+        <div class="lang-grid">
+          <button
+            v-for="lang in languages"
+            :key="lang.code"
+            class="lang-btn"
+            :class="{ active: selectedLanguage === lang.code }"
+            @click="onLanguageSelect(lang.code)"
+          >
+            <span class="lang-flag">{{ lang.flag }}</span>
+            <span class="lang-name">{{ lang.name }}</span>
+            <span class="lang-code mono">{{ lang.code.toUpperCase() }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Status indicator -->
     <div class="save-status mono" :class="{ visible: showSaved }">
       Settings saved
@@ -112,7 +142,14 @@ const globalVolume = ref(100)
 const animationVolume = ref(50)
 const aiReplyVolume = ref(50)
 const selectedColor = ref('orange')
+const selectedLanguage = ref('en')
 const showSaved = ref(false)
+
+const languages = [
+  { code: 'en', name: 'English', flag: '\uD83C\uDDEC\uD83C\uDDE7' },
+  { code: 'ro', name: 'Romanian', flag: '\uD83C\uDDF7\uD83C\uDDF4' },
+  { code: 'de', name: 'German', flag: '\uD83C\uDDE9\uD83C\uDDEA' },
+]
 
 const eyeColors = [
   { name: 'orange',  rgb: [255, 100, 0] },
@@ -129,6 +166,7 @@ const eyeColors = [
 let saveTimeout = null
 let unsubscribe = null
 let unsubscribeDisplay = null
+let unsubscribeAi = null
 
 const effectiveAnimation = computed(() =>
   Math.round(animationVolume.value * globalVolume.value / 100)
@@ -216,9 +254,39 @@ async function onColorSelect(name) {
   }
 }
 
+async function loadAiSettings() {
+  try {
+    const resp = await fetch('/api/settings/ai')
+    if (resp.ok) {
+      const data = await resp.json()
+      selectedLanguage.value = data.language ?? 'en'
+    }
+  } catch (e) {
+    console.warn('[settings] Failed to load AI:', e)
+  }
+}
+
+async function onLanguageSelect(code) {
+  selectedLanguage.value = code
+  try {
+    const resp = await fetch('/api/settings/ai', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ language: code }),
+    })
+    if (resp.ok) {
+      showSaved.value = true
+      setTimeout(() => { showSaved.value = false }, 1500)
+    }
+  } catch (e) {
+    console.warn('[settings] Failed to save AI:', e)
+  }
+}
+
 onMounted(() => {
   loadSettings()
   loadDisplaySettings()
+  loadAiSettings()
   // Listen for external changes via MQTT
   unsubscribe = mqttStore.subscribe('robot/settings/audio', (_topic, payload) => {
     try {
@@ -234,11 +302,18 @@ onMounted(() => {
       if (data.eye_color) selectedColor.value = data.eye_color
     } catch (e) { /* ignore */ }
   })
+  unsubscribeAi = mqttStore.subscribe('robot/settings/ai', (_topic, payload) => {
+    try {
+      const data = typeof payload === 'string' ? JSON.parse(payload) : payload
+      if (data.language) selectedLanguage.value = data.language
+    } catch (e) { /* ignore */ }
+  })
 })
 
 onUnmounted(() => {
   if (unsubscribe) unsubscribe()
   if (unsubscribeDisplay) unsubscribeDisplay()
+  if (unsubscribeAi) unsubscribeAi()
   if (saveTimeout) clearTimeout(saveTimeout)
 })
 </script>
@@ -415,6 +490,60 @@ onUnmounted(() => {
 }
 .color-swatch.active .swatch-label {
   color: var(--text-bright);
+}
+
+/* ── Language selector ── */
+.lang-grid {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lang-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  flex: 1;
+  min-width: 140px;
+}
+.lang-btn:hover {
+  border-color: var(--border-bright);
+  background: var(--bg-hover);
+}
+.lang-btn.active {
+  border-color: var(--glow-primary);
+  background: rgba(0, 212, 255, 0.08);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.15);
+}
+
+.lang-flag {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.lang-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.lang-btn.active .lang-name {
+  color: var(--text-bright);
+}
+
+.lang-code {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  margin-left: auto;
+  letter-spacing: 1px;
+}
+.lang-btn.active .lang-code {
+  color: var(--glow-primary);
 }
 
 /* Save status */

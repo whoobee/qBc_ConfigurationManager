@@ -27,6 +27,7 @@ _ALWAYS_SUBSCRIBE = [
     "robot/+/state",
     "robot/+/current_state",
     "robot/+/error_info",
+    "robot/ai/transcript",
 ]
 
 # Heartbeat topic for this service

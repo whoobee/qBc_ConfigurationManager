@@ -16,7 +16,8 @@ from fastapi.staticfiles import StaticFiles
 from server.mqtt_bridge import MqttBridge
 from server.ws_manager import WebSocketManager
 from server.services.heartbeat_tracker import HeartbeatTracker
-from server.routers import trees, system, settings, navigation, bt_options
+from server.services.transcript_store import TranscriptStore
+from server.routers import trees, system, settings, navigation, bt_options, ai
 
 logger = logging.getLogger("qBc_ConfigMgr.app")
 
@@ -40,6 +41,7 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
     ws_manager = WebSocketManager()
     mqtt_bridge = MqttBridge(mqtt_broker, mqtt_port, ws_manager)
     heartbeat_tracker = HeartbeatTracker()
+    transcript_store = TranscriptStore()
 
     # Wire heartbeat tracker into MQTT bridge
     _orig_on_message = mqtt_bridge._on_message
@@ -71,6 +73,12 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
                 name = parts[1]
                 value = msg.payload.decode("utf-8", errors="replace")
                 heartbeat_tracker.record_error_info(name, value)
+        elif topic == "robot/ai/transcript":
+            try:
+                data = json.loads(msg.payload)
+                transcript_store.add(data)
+            except Exception:
+                pass
         _orig_on_message(client, userdata, msg)
 
     mqtt_bridge._on_message = _tracked_on_message
@@ -80,6 +88,7 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
     app.state.ws_manager = ws_manager
     app.state.mqtt_bridge = mqtt_bridge
     app.state.heartbeat_tracker = heartbeat_tracker
+    app.state.transcript_store = transcript_store
 
     # REST routes
     app.include_router(system.router, prefix="/api/system", tags=["System"])
@@ -87,6 +96,7 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
     app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
     app.include_router(navigation.router, prefix="/api/navigation", tags=["Navigation"])
     app.include_router(bt_options.router, prefix="/api/bt-options", tags=["BT Options"])
+    app.include_router(ai.router, prefix="/api/ai", tags=["AI"])
 
     # WebSocket endpoint
     @app.websocket("/ws")
@@ -120,13 +130,16 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
     async def startup():
         mqtt_bridge.start()
         # Broadcast persisted settings so nodes pick them up on (re)connect
-        from server.routers.settings import _load_settings, MQTT_TOPIC_AUDIO, MQTT_TOPIC_DISPLAY
+        from server.routers.settings import _load_settings, MQTT_TOPIC_AUDIO, MQTT_TOPIC_DISPLAY, MQTT_TOPIC_AI
         all_settings = _load_settings()
         mqtt_bridge._client.publish(
             MQTT_TOPIC_AUDIO, json.dumps(all_settings["audio"]), qos=1, retain=True,
         )
         mqtt_bridge._client.publish(
             MQTT_TOPIC_DISPLAY, json.dumps(all_settings["display"]), qos=1, retain=True,
+        )
+        mqtt_bridge._client.publish(
+            MQTT_TOPIC_AI, json.dumps(all_settings["ai"]), qos=1, retain=True,
         )
         logger.info("qBc Configuration Manager started")
 

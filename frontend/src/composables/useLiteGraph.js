@@ -20,7 +20,7 @@ const BLUEPRINT_CONFIG = {
   default_shadow_color: 'rgba(0,0,0,0.4)',
   render_shadows: true,
   render_canvas_border: false,
-  render_connections_arrows: true,
+  render_connection_arrows: true,
   render_curved_connections: true,
   connections_width: 2,
   links_render_mode: LiteGraph.SPLINE_LINK,

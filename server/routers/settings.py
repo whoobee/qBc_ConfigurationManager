@@ -13,6 +13,9 @@ router = APIRouter()
 SETTINGS_FILE = Path(__file__).parent.parent.parent / "settings.json"
 MQTT_TOPIC_AUDIO = "robot/settings/audio"
 MQTT_TOPIC_DISPLAY = "robot/settings/display"
+MQTT_TOPIC_AI = "robot/settings/ai"
+
+VALID_LANGUAGES = ("en", "ro", "de")
 
 DEFAULT_SETTINGS = {
     "audio": {
@@ -22,6 +25,9 @@ DEFAULT_SETTINGS = {
     },
     "display": {
         "eye_color": "orange",
+    },
+    "ai": {
+        "language": "en",
     },
 }
 
@@ -67,6 +73,18 @@ def _broadcast_display(request: Request, display: dict):
         bridge._client.publish(
             MQTT_TOPIC_DISPLAY,
             json.dumps(display),
+            qos=1,
+            retain=True,
+        )
+
+
+def _broadcast_ai(request: Request, ai_settings: dict):
+    """Publish AI settings to MQTT (retained)."""
+    bridge = request.app.state.mqtt_bridge
+    if bridge and bridge.connected:
+        bridge._client.publish(
+            MQTT_TOPIC_AI,
+            json.dumps(ai_settings),
             qos=1,
             retain=True,
         )
@@ -124,3 +142,28 @@ async def update_display_settings(request: Request):
     _broadcast_display(request, settings["display"])
     logger.info("Display settings updated: %s", settings["display"])
     return settings["display"]
+
+
+@router.get("/ai")
+async def get_ai_settings():
+    """Return current AI settings (language, etc.)."""
+    return _load_settings()["ai"]
+
+
+@router.put("/ai")
+async def update_ai_settings(request: Request):
+    """Update AI settings, persist, and broadcast via MQTT."""
+    body = await request.json()
+    settings = _load_settings()
+
+    if "language" in body:
+        lang = str(body["language"]).lower().strip()
+        if lang in VALID_LANGUAGES:
+            settings["ai"]["language"] = lang
+        else:
+            logger.warning("Invalid language code: %s", lang)
+
+    _save_settings(settings)
+    _broadcast_ai(request, settings["ai"])
+    logger.info("AI settings updated: %s", settings["ai"])
+    return settings["ai"]

@@ -1,10 +1,13 @@
 {
   "audio": {
-    "global_volume": 50,
+    "global_volume": 100,
     "animation_volume": 50,
-    "ai_reply_volume": 50
+    "ai_reply_volume": 70
   },
   "display": {
-    "eye_color": "orange"
+    "eye_color": "cyan"
+  },
+  "ai": {
+    "language": "ro"
   }
 }

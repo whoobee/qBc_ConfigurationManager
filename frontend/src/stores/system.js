@@ -13,8 +13,31 @@ export const useSystemStore = defineStore('system', () => {
   let unsubs = []
   let ageTimer = null
 
-  function init() {
+  async function init() {
     const mqtt = useMqttStore()
+
+    // Hydrate from REST API so retained MQTT state (current_state, error_info)
+    // is available immediately, even if the WS client missed retained messages.
+    try {
+      const resp = await fetch('/api/system/status')
+      if (resp.ok) {
+        const data = await resp.json()
+        if (data.services) {
+          for (const [name, svc] of Object.entries(data.services)) {
+            services[name] = {
+              alive: svc.alive,
+              lastSeen: svc.last_seen ? svc.last_seen * 1000 : null,
+              age: svc.age,
+              state: svc.state || {},
+              currentState: svc.current_state || null,
+              errorInfo: svc.error_info || null,
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Non-fatal — MQTT subscriptions will populate data eventually
+    }
 
     unsubs.push(mqtt.subscribe('robot/system/heartbeat/#', (topic, payload) => {
       const name = topic.split('/').pop()
