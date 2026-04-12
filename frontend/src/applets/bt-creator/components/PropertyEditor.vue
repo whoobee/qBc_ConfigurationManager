@@ -20,23 +20,41 @@
       <div class="props-divider"></div>
 
       <div v-for="(val, key) in editableProps" :key="key" class="prop-section">
-        <label class="prop-label mono text-xs text-dim">{{ key }}</label>
-        <input
-          v-if="typeof val === 'string' || typeof val === 'number'"
-          class="prop-input mono text-xs"
-          :value="val"
-          @change="onUpdate(key, $event.target.value)"
+        <label class="prop-label mono text-xs text-dim">
+          {{ key }}
+          <span v-if="fieldHint(key)" class="prop-hint">{{ fieldHint(key) }}</span>
+        </label>
+
+        <!-- Searchable select for fields with known options -->
+        <SearchableSelect
+          v-if="getOptions(key)"
+          :modelValue="String(val)"
+          :options="getOptions(key)"
+          :placeholder="'Select ' + key + '...'"
+          @update:modelValue="onUpdate(key, $event)"
         />
+
+        <!-- Boolean toggle -->
         <label v-else-if="typeof val === 'boolean'" class="prop-toggle">
           <input type="checkbox" :checked="val" @change="onUpdate(key, $event.target.checked)" />
           <span class="toggle-label mono text-xs">{{ val ? 'true' : 'false' }}</span>
         </label>
+
+        <!-- JSON object/array textarea -->
         <textarea
-          v-else
+          v-else-if="val !== null && typeof val === 'object'"
           class="prop-input prop-textarea mono text-xs"
           :value="JSON.stringify(val, null, 2)"
           @change="onUpdateJson(key, $event.target.value)"
         ></textarea>
+
+        <!-- Default text/number input -->
+        <input
+          v-else
+          class="prop-input mono text-xs"
+          :value="val"
+          @change="onUpdate(key, $event.target.value)"
+        />
       </div>
     </div>
     <div class="props-empty text-dim text-xs" v-else>
@@ -46,10 +64,35 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
+import SearchableSelect from '../../../components/SearchableSelect.vue'
 
 const props = defineProps({ node: Object })
 const emit = defineEmits(['update'])
+
+// Loaded options from backend
+const opts = ref({
+  animations: [],
+  sounds: [],
+  joint_names: [],
+  joints: [],
+  operators: [],
+  movement_types: [],
+  colors: [],
+  input_topics: [],
+  output_topics: [],
+  all_topics: [],
+  blackboard_keys: [],
+})
+
+onMounted(async () => {
+  try {
+    const res = await fetch('/api/bt-options/')
+    if (res.ok) opts.value = await res.json()
+  } catch (e) {
+    console.warn('[PropertyEditor] Failed to load BT options:', e)
+  }
+})
 
 const typeColor = computed(() => {
   const colors = { Composites: '#4a90d9', Decorators: '#9b59b6', Conditions: '#f1c40f', Actions: '#2ecc71' }
@@ -66,11 +109,73 @@ const editableProps = computed(() => {
   return result
 })
 
+/**
+ * Return dropdown options for a given property key, considering the node type.
+ * Returns null if the field should use a plain input instead.
+ */
+function getOptions(key) {
+  const nodeType = props.node?.btType
+  if (!nodeType) return null
+
+  // -- BlackboardCondition --
+  if (nodeType === 'BlackboardCondition') {
+    if (key === 'operator') return opts.value.operators
+    if (key === 'key') return opts.value.blackboard_keys
+  }
+
+  // -- EventCheck, WaitForEvent, HeartbeatCheck --
+  if ((nodeType === 'EventCheck' || nodeType === 'WaitForEvent') && key === 'key') {
+    return opts.value.blackboard_keys.filter(k => k.startsWith('events.'))
+  }
+  if (nodeType === 'HeartbeatCheck' && key === 'key') {
+    return opts.value.blackboard_keys.filter(k => k.startsWith('heartbeat.'))
+  }
+
+  // -- PlayAnimation --
+  if (nodeType === 'PlayAnimation') {
+    if (key === 'expression') return opts.value.animations
+    if (key === 'color') return opts.value.colors
+  }
+
+  // -- PlayAudio --
+  if (nodeType === 'PlayAudio' && key === 'file') {
+    return opts.value.sounds
+  }
+
+  // -- MoveJoint --
+  if (nodeType === 'MoveJoint') {
+    if (key === 'joint_name') return opts.value.joint_names
+    if (key === 'movement_type') return opts.value.movement_types
+  }
+
+  // -- SendCommand --
+  if (nodeType === 'SendCommand' && key === 'topic') {
+    return opts.value.all_topics
+  }
+
+  return null
+}
+
+/**
+ * Return a hint string for known fields (e.g., range info for joints).
+ */
+function fieldHint(key) {
+  const nodeType = props.node?.btType
+  if (nodeType === 'MoveJoint' && key === 'target_position') {
+    const jName = props.node?.properties?.joint_name
+    const joint = opts.value.joints?.find(j => j.name === jName)
+    if (joint) return `${joint.min_deg} to ${joint.max_deg} deg`
+  }
+  return null
+}
+
 function onUpdate(key, value) {
   // Auto-detect type
-  if (!isNaN(value) && value !== '' && value !== true && value !== false) {
+  if (value !== '' && value !== true && value !== false && !isNaN(value)) {
     value = Number(value)
   }
+  if (value === 'true') value = true
+  if (value === 'false') value = false
   emit('update', { key, value })
 }
 
@@ -85,7 +190,7 @@ function onUpdateJson(key, value) {
 
 <style scoped>
 .props-panel {
-  width: 260px;
+  width: 280px;
   flex-shrink: 0;
   border-left: 1px solid var(--border-default);
   display: flex;
@@ -118,6 +223,14 @@ function onUpdateJson(key, value) {
   margin-bottom: 3px;
   text-transform: uppercase;
   letter-spacing: 1px;
+}
+.prop-hint {
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--glow-primary);
+  opacity: 0.7;
+  margin-left: 4px;
+  font-size: 0.65rem;
 }
 .prop-value {
   padding: 4px 0;

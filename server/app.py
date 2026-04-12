@@ -16,12 +16,13 @@ from fastapi.staticfiles import StaticFiles
 from server.mqtt_bridge import MqttBridge
 from server.ws_manager import WebSocketManager
 from server.services.heartbeat_tracker import HeartbeatTracker
-from server.routers import trees, system
+from server.routers import trees, system, settings, navigation, bt_options
 
 logger = logging.getLogger("qBc_ConfigMgr.app")
 
 FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 INDEX_HTML = FRONTEND_DIST / "index.html"
+NAV_DEBUG_DIR = Path(__file__).parent.parent.parent / "qBc_Navigation" / "debug"
 
 
 def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI:
@@ -83,6 +84,9 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
     # REST routes
     app.include_router(system.router, prefix="/api/system", tags=["System"])
     app.include_router(trees.router, prefix="/api/trees", tags=["Trees"])
+    app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
+    app.include_router(navigation.router, prefix="/api/navigation", tags=["Navigation"])
+    app.include_router(bt_options.router, prefix="/api/bt-options", tags=["BT Options"])
 
     # WebSocket endpoint
     @app.websocket("/ws")
@@ -115,12 +119,29 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
     @app.on_event("startup")
     async def startup():
         mqtt_bridge.start()
+        # Broadcast persisted settings so nodes pick them up on (re)connect
+        from server.routers.settings import _load_settings, MQTT_TOPIC_AUDIO, MQTT_TOPIC_DISPLAY
+        all_settings = _load_settings()
+        mqtt_bridge._client.publish(
+            MQTT_TOPIC_AUDIO, json.dumps(all_settings["audio"]), qos=1, retain=True,
+        )
+        mqtt_bridge._client.publish(
+            MQTT_TOPIC_DISPLAY, json.dumps(all_settings["display"]), qos=1, retain=True,
+        )
         logger.info("qBc Configuration Manager started")
 
     @app.on_event("shutdown")
     async def shutdown():
         mqtt_bridge.stop()
         logger.info("qBc Configuration Manager stopped")
+
+    # ── Navigation debug images ──
+    if NAV_DEBUG_DIR.exists():
+        app.mount(
+            "/api/navigation/debug",
+            StaticFiles(directory=str(NAV_DEBUG_DIR)),
+            name="nav_debug",
+        )
 
     # ── Serve Vue SPA ──
     # Static assets (JS/CSS/images) are served from /assets/ directly.

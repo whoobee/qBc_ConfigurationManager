@@ -416,6 +416,19 @@ export function buildGraphFromDescriptor(graph, descriptor) {
   }
 
   createNode(root, 50, 50)
+
+  // Restore groups if saved in the descriptor
+  if (Array.isArray(descriptor._groups)) {
+    for (const gd of descriptor._groups) {
+      const group = new LiteGraph.LGraphGroup()
+      group.title = gd.title || 'Group'
+      group.color = gd.color || '#335'
+      group._bounding = gd.bounding || [0, 0, 400, 300]
+      group.font_size = gd.font_size || 24
+      graph.add(group)
+    }
+  }
+
   graph.setDirtyCanvas(true, true)
 }
 
@@ -532,6 +545,20 @@ export function recomputeExecOrder(graph) {
   }
 
   graph.setDirtyCanvas(true, true)
+}
+
+/**
+ * Export LiteGraph groups as a serializable array.
+ * Groups are visual containers (not BT nodes) used for organizing the canvas.
+ */
+export function exportGroups(graph) {
+  const groups = graph._groups || []
+  return groups.map(g => ({
+    title: g.title,
+    color: g.color,
+    bounding: g._bounding ? [...g._bounding] : [0, 0, 400, 300],
+    font_size: g.font_size || 24,
+  }))
 }
 
 export { STATUS_COLORS, COLORS, getCategoryForType }

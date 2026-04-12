@@ -24,8 +24,27 @@
       </div>
     </div>
 
-    <!-- Service cards grid -->
+    <!-- Raspberry Pi hardware stats -->
     <h3 class="section-title">
+      <svg class="section-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M13 7H7v6h6V7z"/>
+        <path fill-rule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h1a2 2 0 012 2v1h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v1a2 2 0 01-2 2h-1v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H6a2 2 0 01-2-2v-1H3a1 1 0 110-2h1V8H3a1 1 0 010-2h1V5a2 2 0 012-2h1V2z"/>
+      </svg>
+      Raspberry Pi 5
+    </h3>
+    <HardwareStats :rpi="metrics.rpi" />
+
+    <!-- AXCL Accelerator stats -->
+    <h3 class="section-title" style="margin-top: 24px;">
+      <svg class="section-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M10 1l-7 4v6l7 4 7-4V5l-7-4zM5 7.5L10 5l5 2.5L10 10 5 7.5z"/>
+      </svg>
+      AXCL Accelerator
+    </h3>
+    <AcceleratorStats :axcl="metrics.axcl" />
+
+    <!-- Service cards grid -->
+    <h3 class="section-title" style="margin-top: 24px;">
       <svg class="section-icon" viewBox="0 0 20 20" fill="currentColor">
         <rect x="2" y="2" width="7" height="7" rx="1.5"/>
         <rect x="11" y="2" width="7" height="7" rx="1.5"/>
@@ -50,10 +69,12 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useMqttStore } from '../../stores/mqtt.js'
 import { useSystemStore } from '../../stores/system.js'
 import ServiceCard from './components/ServiceCard.vue'
+import HardwareStats from './components/HardwareStats.vue'
+import AcceleratorStats from './components/AcceleratorStats.vue'
 
 const mqttStore = useMqttStore()
 const systemStore = useSystemStore()
@@ -65,6 +86,27 @@ const services = computed(() => systemStore.services)
 const aliveCount = computed(() =>
   Object.values(systemStore.services).filter(s => s.alive).length
 )
+
+// Hardware metrics (polled every 3 seconds)
+const metrics = reactive({
+  rpi: {},
+  axcl: { available: false },
+})
+
+let metricsTimer = null
+
+async function fetchMetrics() {
+  try {
+    const resp = await fetch('/api/system/metrics')
+    if (resp.ok) {
+      const data = await resp.json()
+      metrics.rpi = data.rpi || {}
+      metrics.axcl = data.axcl || { available: false }
+    }
+  } catch (e) {
+    // Silently retry next cycle
+  }
+}
 
 // Uptime
 const uptimeStr = ref('00:00:00')
@@ -79,8 +121,16 @@ onMounted(() => {
     const s = String(elapsed % 60).padStart(2, '0')
     uptimeStr.value = `${h}:${m}:${s}`
   }, 1000)
+
+  // Fetch metrics immediately and then every 3 seconds
+  fetchMetrics()
+  metricsTimer = setInterval(fetchMetrics, 3000)
 })
-onUnmounted(() => { if (uptimeTimer) clearInterval(uptimeTimer) })
+
+onUnmounted(() => {
+  if (uptimeTimer) clearInterval(uptimeTimer)
+  if (metricsTimer) clearInterval(metricsTimer)
+})
 </script>
 
 <style scoped>

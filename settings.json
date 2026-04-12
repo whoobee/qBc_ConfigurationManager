@@ -1,0 +1,10 @@
+{
+  "audio": {
+    "global_volume": 50,
+    "animation_volume": 50,
+    "ai_reply_volume": 50
+  },
+  "display": {
+    "eye_color": "orange"
+  }
+}

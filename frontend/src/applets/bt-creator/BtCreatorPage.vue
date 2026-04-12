@@ -3,17 +3,32 @@
     <!-- Toolbar -->
     <div class="editor-toolbar flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <select class="bp-select mono text-xs" v-model="selectedFile" @change="loadSelected">
+        <select class="bp-select mono text-xs" v-model="store.selectedFile" @change="loadSelected">
           <option value="">-- Select Tree --</option>
           <option v-for="t in treeList" :key="t.filename" :value="t.filename">
             {{ t.name }} ({{ t.filename }})
           </option>
         </select>
-        <button class="bp-btn text-xs" @click="loadSelected" :disabled="!selectedFile">LOAD</button>
-        <button class="bp-btn bp-btn-primary text-xs" @click="saveTree">SAVE</button>
+        <button class="bp-btn text-xs" @click="loadSelected" :disabled="!store.selectedFile">LOAD</button>
+
+        <span class="toolbar-sep"></span>
+
+        <label class="tree-name-label mono text-xs text-dim">Name:</label>
+        <input
+          class="tree-name-input mono text-xs"
+          v-model="store.treeName"
+          placeholder="Tree name..."
+          @input="markDirty"
+        />
+
+        <span class="toolbar-sep"></span>
+
+        <button class="bp-btn bp-btn-primary text-xs" @click="saveTree">
+          SAVE<span v-if="store.dirty" class="dirty-dot"></span>
+        </button>
         <button class="bp-btn text-xs" @click="saveTreeAs">SAVE AS</button>
         <button class="bp-btn bp-btn-success text-xs" @click="validateTree">VALIDATE</button>
-        <button class="bp-btn text-xs" @click="deployTree" :disabled="!selectedFile">DEPLOY</button>
+        <button class="bp-btn text-xs" @click="deployTree" :disabled="!store.selectedFile">DEPLOY</button>
       </div>
       <div class="flex items-center gap-2">
         <span class="mono text-xs text-dim" v-if="statusMsg" :class="statusClass">{{ statusMsg }}</span>
@@ -50,20 +65,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { LiteGraph } from 'litegraph.js'
 import { useLiteGraph } from '../../composables/useLiteGraph.js'
-import { registerBTNodeTypes, buildGraphFromDescriptor, exportGraphToDescriptor, recomputeExecOrder } from './litegraph/bt-nodes.js'
+import { useBtCreatorStore } from '../../stores/btCreator.js'
+import { registerBTNodeTypes, buildGraphFromDescriptor, exportGraphToDescriptor, exportGroups, recomputeExecOrder } from './litegraph/bt-nodes.js'
 import NodePalette from './components/NodePalette.vue'
 import PropertyEditor from './components/PropertyEditor.vue'
 
+const store = useBtCreatorStore()
+
 const canvasContainer = ref(null)
-const selectedFile = ref('')
 const treeList = ref([])
 const selectedNode = ref(null)
 const statusMsg = ref('')
 const statusClass = ref('')
-const loadedDescriptor = ref(null)  // preserve metadata/blackboard on round-trip
 const validationErrors = ref([])
 
 // Register BT nodes
@@ -86,8 +102,17 @@ const { graph, canvas } = useLiteGraph(canvasContainer, {
     }
 
     // Recompute execution order when structure changes
-    g.onConnectionChange = () => recomputeExecOrder(g)
-    c.onNodeMoved = () => recomputeExecOrder(g)
+    g.onConnectionChange = () => { recomputeExecOrder(g); markDirty() }
+    c.onNodeMoved = () => { recomputeExecOrder(g); markDirty() }
+
+    // Restore cached graph if we're coming back from another page
+    if (store.graphSnapshot) {
+      g.configure(store.graphSnapshot)
+      recomputeExecOrder(g)
+    } else if (store.selectedFile) {
+      // First load — fetch the selected file (default.yaml on first visit)
+      loadSelected()
+    }
   },
 })
 
@@ -102,13 +127,29 @@ async function refreshTreeList() {
 
 onMounted(refreshTreeList)
 
+// Save graph snapshot to store before leaving the page
+onBeforeUnmount(() => {
+  if (graph.value) {
+    store.graphSnapshot = graph.value.serialize()
+    // Also update the descriptor meta with current tree name
+    if (store.descriptorMeta) {
+      store.descriptorMeta = {
+        ...store.descriptorMeta,
+        tree: { ...store.descriptorMeta.tree, name: store.treeName },
+      }
+    }
+  }
+})
+
 async function loadSelected() {
-  if (!selectedFile.value) return
+  if (!store.selectedFile) return
   try {
-    const resp = await fetch(`/api/trees/${selectedFile.value}`)
+    const resp = await fetch(`/api/trees/${store.selectedFile}`)
     const descriptor = await resp.json()
     importTreeDescriptor(descriptor)
-    setStatus(`Loaded: ${selectedFile.value}`, 'ok')
+    store.treeName = descriptor.tree?.name || store.selectedFile.replace('.yaml', '')
+    store.markClean()
+    setStatus(`Loaded: ${store.selectedFile}`, 'ok')
   } catch (e) {
     setStatus('Load failed: ' + e.message, 'error')
   }
@@ -116,7 +157,7 @@ async function loadSelected() {
 
 async function saveTree() {
   if (!graph.value) return
-  let filename = selectedFile.value
+  let filename = store.selectedFile
   if (!filename) {
     filename = prompt('Enter tree filename (e.g. my_tree.yaml):')
     if (!filename) return
@@ -130,7 +171,8 @@ async function saveTree() {
       body: JSON.stringify(descriptor),
     })
     if (!resp.ok) throw new Error(await resp.text())
-    selectedFile.value = filename
+    store.selectedFile = filename
+    store.markClean()
     await refreshTreeList()
     setStatus(`Saved: ${filename}`, 'ok')
   } catch (e) {
@@ -140,7 +182,7 @@ async function saveTree() {
 
 async function saveTreeAs() {
   if (!graph.value) return
-  let filename = prompt('Save as filename (e.g. my_tree.yaml):', selectedFile.value || '')
+  let filename = prompt('Save as filename (e.g. my_tree.yaml):', store.selectedFile || '')
   if (!filename) return
   if (!filename.endsWith('.yaml')) filename += '.yaml'
   try {
@@ -151,7 +193,8 @@ async function saveTreeAs() {
       body: JSON.stringify(descriptor),
     })
     if (!resp.ok) throw new Error(await resp.text())
-    selectedFile.value = filename
+    store.selectedFile = filename
+    store.markClean()
     await refreshTreeList()
     setStatus(`Saved as: ${filename}`, 'ok')
   } catch (e) {
@@ -187,7 +230,7 @@ async function deployTree() {
     const resp = await fetch('/api/trees/deploy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: selectedFile.value }),
+      body: JSON.stringify({ filename: store.selectedFile }),
     })
     setStatus('Deploy command sent', 'ok')
   } catch (e) {
@@ -197,7 +240,9 @@ async function deployTree() {
 
 function newTree() {
   if (graph.value) graph.value.clear()
-  selectedFile.value = ''
+  store.selectedFile = ''
+  store.treeName = ''
+  store.clear()
   selectedNode.value = null
   setStatus('New tree created', 'ok')
 }
@@ -208,6 +253,7 @@ function addNodeToGraph(typePath) {
   if (node) {
     node.pos = [200 + Math.random() * 200, 100 + Math.random() * 200]
     graph.value.add(node)
+    markDirty()
   }
 }
 
@@ -217,12 +263,14 @@ function onPropertyUpdate({ key, value }) {
   if (lgNode) {
     lgNode.properties[key] = value
     lgNode.setDirtyCanvas(true)
+    selectedNode.value = { ...selectedNode.value, properties: { ...lgNode.properties } }
+    markDirty()
   }
 }
 
 function importTreeDescriptor(descriptor) {
   if (!graph.value) return
-  loadedDescriptor.value = descriptor
+  store.descriptorMeta = descriptor
   buildGraphFromDescriptor(graph.value, descriptor)
   recomputeExecOrder(graph.value)
 }
@@ -230,16 +278,25 @@ function importTreeDescriptor(descriptor) {
 function exportTreeDescriptor() {
   if (!graph.value) return null
   const rootDesc = exportGraphToDescriptor(graph.value)
-  const meta = loadedDescriptor.value || {}
-  return {
+  const groups = exportGroups(graph.value)
+  const meta = store.descriptorMeta || {}
+  const desc = {
     tree: {
-      name: meta.tree?.name || selectedFile.value?.replace('.yaml', '') || 'untitled',
+      name: store.treeName || store.selectedFile?.replace('.yaml', '') || 'untitled',
       ...(meta.tree?.description && { description: meta.tree.description }),
       tick_rate_hz: meta.tree?.tick_rate_hz || 30,
     },
     blackboard: meta.blackboard || { subscriptions: [], events: [], heartbeats: [] },
     root: rootDesc || { type: 'Selector', name: 'root', children: [] },
   }
+  if (groups.length > 0) {
+    desc._groups = groups
+  }
+  return desc
+}
+
+function markDirty() {
+  store.dirty = true
 }
 
 function setStatus(msg, type = '') {
@@ -283,6 +340,41 @@ function setStatus(msg, type = '') {
   outline: none;
 }
 .bp-select:focus { border-color: var(--glow-primary); }
+
+.toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border-default);
+  margin: 0 2px;
+}
+
+.tree-name-label {
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.tree-name-input {
+  width: 160px;
+  padding: 5px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--text-mono);
+  outline: none;
+}
+.tree-name-input:focus { border-color: var(--glow-primary); }
+.tree-name-input::placeholder { color: var(--text-dim); opacity: 0.5; }
+
+.dirty-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffd600;
+  margin-left: 5px;
+  vertical-align: middle;
+}
 
 .status-ok { color: var(--glow-success) !important; }
 .status-err { color: var(--glow-danger) !important; }

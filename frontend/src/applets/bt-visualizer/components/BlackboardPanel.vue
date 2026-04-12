@@ -45,7 +45,8 @@ function flattenObj(obj, prefix = '') {
 
 <style scoped>
 .bb-panel {
-  width: 280px;
+  width: 420px;
+  min-width: 320px;
   flex-shrink: 0;
   border-left: 1px solid var(--border-default);
   display: flex;
@@ -61,16 +62,16 @@ function flattenObj(obj, prefix = '') {
 
 .bb-entries {
   flex: 1;
-  overflow-y: auto;
+  overflow: auto;
   padding: 4px 0;
 }
 
 .bb-entry {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
   padding: 4px 12px;
   border-bottom: 1px solid var(--border-subtle);
+  min-width: max-content;
 }
 .bb-entry:hover {
   background: var(--bg-hover);
@@ -79,16 +80,10 @@ function flattenObj(obj, prefix = '') {
 .bb-key {
   color: var(--text-dim);
   flex-shrink: 0;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .bb-val {
   color: var(--text-primary);
-  text-align: right;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 </style>
