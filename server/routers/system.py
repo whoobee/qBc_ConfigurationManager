@@ -1,4 +1,4 @@
-"""System status REST endpoints."""
+"""System status and control REST endpoints."""
 
 import logging
 import re
@@ -44,6 +44,53 @@ async def get_system_metrics():
         "rpi": _get_rpi_metrics(),
         "axcl": _get_axcl_metrics(),
     }
+
+
+@router.get("/logs")
+async def get_logs(request: Request, since: float = 0.0):
+    """Get buffered log lines from all services, optionally since a timestamp."""
+    svc_mgr = request.app.state.service_manager
+    return {
+        "services": svc_mgr.get_service_names(),
+        "logs": svc_mgr.get_logs(since),
+    }
+
+
+@router.post("/services/start")
+async def start_services(request: Request):
+    """Start all qB services from launch.json."""
+    svc_mgr = request.app.state.service_manager
+    return svc_mgr.start_all()
+
+
+@router.post("/services/stop")
+async def stop_services(request: Request):
+    """Stop all managed qB services."""
+    svc_mgr = request.app.state.service_manager
+    return svc_mgr.stop_all()
+
+
+@router.get("/services/launcher")
+async def get_launcher_status(request: Request):
+    """Get status of managed service processes."""
+    svc_mgr = request.app.state.service_manager
+    return svc_mgr.get_status()
+
+
+@router.post("/shutdown")
+async def shutdown_system():
+    """Shutdown the Raspberry Pi."""
+    logger.warning("System shutdown requested via dashboard")
+    subprocess.Popen(["sudo", "shutdown", "-h", "now"])
+    return {"status": "ok", "message": "Shutting down..."}
+
+
+@router.post("/reboot")
+async def reboot_system():
+    """Reboot the Raspberry Pi."""
+    logger.warning("System reboot requested via dashboard")
+    subprocess.Popen(["sudo", "reboot"])
+    return {"status": "ok", "message": "Rebooting..."}
 
 
 def _get_rpi_metrics():

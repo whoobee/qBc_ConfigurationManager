@@ -26,6 +26,13 @@
     <div class="card-body text-xs text-dim" v-else-if="!currentState && !errorInfo">
       No state data
     </div>
+    <!-- Loading progress bar -->
+    <div class="card-loading" v-if="loadingPercent !== null && loadingPercent < 100 && !alive">
+      <div class="loading-bar">
+        <div class="loading-fill" :style="{ width: loadingPercent + '%' }"></div>
+      </div>
+      <span class="loading-label mono text-xs">{{ loadingMessage || `${loadingPercent}%` }}</span>
+    </div>
     <!-- Animated border accent -->
     <div class="card-accent" :style="{ background: alive ? 'var(--glow-success)' : 'var(--glow-danger)' }"></div>
   </div>
@@ -41,6 +48,8 @@ const props = defineProps({
   state: Object,
   currentState: String,
   errorInfo: String,
+  loadingPercent: { type: Number, default: null },
+  loadingMessage: { type: String, default: '' },
 })
 
 const displayName = computed(() => {
@@ -129,6 +138,30 @@ function stateClass(key, val) {
 .state-val.val-ok { color: var(--glow-success); }
 .state-val.val-err { color: var(--glow-danger); }
 .state-val.val-on { color: var(--glow-primary); }
+
+/* Loading progress */
+.card-loading {
+  padding: 6px 14px 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+.loading-bar {
+  height: 4px;
+  background: var(--bg-hover);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.loading-fill {
+  height: 100%;
+  background: var(--glow-primary);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 6px rgba(0, 212, 255, 0.4);
+}
+.loading-label {
+  color: var(--glow-primary);
+  opacity: 0.8;
+}
 
 .card-accent {
   position: absolute;

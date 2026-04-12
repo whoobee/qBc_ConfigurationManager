@@ -50,6 +50,9 @@ class MqttBridge:
         # Per-topic throttle tracking
         self._last_forward: dict[str, float] = {}
 
+        # Optional callback invoked after MQTT connects (used to re-broadcast settings)
+        self._on_connect_hook = None
+
         # MQTT client
         self._client = mqtt.Client(
             mqtt.CallbackAPIVersion.VERSION2,
@@ -135,6 +138,13 @@ class MqttBridge:
         )
         client.publish(TOPIC_CURRENT_STATE, "running", qos=1, retain=True)
         client.publish(TOPIC_ERROR_INFO, "E_OK", qos=1, retain=True)
+
+        # Re-broadcast persisted settings so all services pick them up
+        if self._on_connect_hook:
+            try:
+                self._on_connect_hook(client)
+            except Exception as e:
+                logger.warning("on_connect hook error: %s", e)
 
     def _on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties):
         self._connected = False

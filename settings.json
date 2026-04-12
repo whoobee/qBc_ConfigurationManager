@@ -1,13 +1,16 @@
 {
   "audio": {
-    "global_volume": 100,
+    "global_volume": 51,
     "animation_volume": 50,
-    "ai_reply_volume": 70
+    "ai_reply_volume": 86
   },
   "display": {
-    "eye_color": "cyan"
+    "eye_color": "white"
   },
   "ai": {
-    "language": "ro"
+    "language": "en"
+  },
+  "navigation": {
+    "neck_deadzone": 0.35
   }
 }

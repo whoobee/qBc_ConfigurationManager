@@ -14,6 +14,7 @@ SETTINGS_FILE = Path(__file__).parent.parent.parent / "settings.json"
 MQTT_TOPIC_AUDIO = "robot/settings/audio"
 MQTT_TOPIC_DISPLAY = "robot/settings/display"
 MQTT_TOPIC_AI = "robot/settings/ai"
+MQTT_TOPIC_NAVIGATION = "robot/settings/navigation"
 
 VALID_LANGUAGES = ("en", "ro", "de")
 
@@ -28,6 +29,10 @@ DEFAULT_SETTINGS = {
     },
     "ai": {
         "language": "en",
+    },
+    "navigation": {
+        "neck_deadzone": 0.03,
+        "neck_invert": False,
     },
 }
 
@@ -85,6 +90,18 @@ def _broadcast_ai(request: Request, ai_settings: dict):
         bridge._client.publish(
             MQTT_TOPIC_AI,
             json.dumps(ai_settings),
+            qos=1,
+            retain=True,
+        )
+
+
+def _broadcast_navigation(request: Request, nav_settings: dict):
+    """Publish navigation settings to MQTT (retained)."""
+    bridge = request.app.state.mqtt_bridge
+    if bridge and bridge.connected:
+        bridge._client.publish(
+            MQTT_TOPIC_NAVIGATION,
+            json.dumps(nav_settings),
             qos=1,
             retain=True,
         )
@@ -167,3 +184,28 @@ async def update_ai_settings(request: Request):
     _broadcast_ai(request, settings["ai"])
     logger.info("AI settings updated: %s", settings["ai"])
     return settings["ai"]
+
+
+@router.get("/navigation")
+async def get_navigation_settings():
+    """Return current navigation settings."""
+    return _load_settings()["navigation"]
+
+
+@router.put("/navigation")
+async def update_navigation_settings(request: Request):
+    """Update navigation settings, persist, and broadcast via MQTT."""
+    body = await request.json()
+    settings = _load_settings()
+
+    if "neck_deadzone" in body:
+        val = float(body["neck_deadzone"])
+        settings["navigation"]["neck_deadzone"] = max(0.0, min(0.72, val))
+
+    if "neck_invert" in body:
+        settings["navigation"]["neck_invert"] = bool(body["neck_invert"])
+
+    _save_settings(settings)
+    _broadcast_navigation(request, settings["navigation"])
+    logger.info("Navigation settings updated: %s", settings["navigation"])
+    return settings["navigation"]

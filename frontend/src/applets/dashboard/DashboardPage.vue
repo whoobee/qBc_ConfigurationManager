@@ -22,6 +22,36 @@
           <span class="hero-label">SESSION UPTIME</span>
         </div>
       </div>
+
+      <div class="hero-divider"></div>
+
+      <!-- Control buttons -->
+      <div class="control-row">
+        <button
+          class="ctrl-btn ctrl-btn--start"
+          :disabled="launching"
+          @click="startServices"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="ctrl-icon"><polygon points="5,3 17,10 5,17"/></svg>
+          {{ launching ? 'STARTING...' : 'START SERVICES' }}
+        </button>
+        <button
+          class="ctrl-btn ctrl-btn--stop"
+          @click="stopServices"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="ctrl-icon"><rect x="4" y="4" width="12" height="12" rx="1.5"/></svg>
+          STOP SERVICES
+        </button>
+        <div class="ctrl-spacer"></div>
+        <button class="ctrl-btn ctrl-btn--reboot" @click="confirmReboot">
+          <svg viewBox="0 0 20 20" fill="currentColor" class="ctrl-icon"><path d="M10 2v6m0 0a6 6 0 110 12 6 6 0 010-12z"/></svg>
+          REBOOT
+        </button>
+        <button class="ctrl-btn ctrl-btn--shutdown" @click="confirmShutdown">
+          <svg viewBox="0 0 20 20" fill="currentColor" class="ctrl-icon"><circle cx="10" cy="12" r="6"/><rect x="9" y="2" width="2" height="8"/></svg>
+          SHUTDOWN
+        </button>
+      </div>
     </div>
 
     <!-- Raspberry Pi hardware stats -->
@@ -63,6 +93,8 @@
         :state="svc.state"
         :currentState="svc.currentState"
         :errorInfo="svc.errorInfo"
+        :loadingPercent="loadingProgress[name]?.percent ?? null"
+        :loadingMessage="loadingProgress[name]?.message ?? ''"
       />
     </div>
   </div>
@@ -82,10 +114,53 @@ const systemStore = useSystemStore()
 const mqttConnected = computed(() => mqttStore.connected)
 const messageRate = computed(() => mqttStore.messageRate)
 const services = computed(() => systemStore.services)
+const loadingProgress = computed(() => systemStore.loadingProgress)
 
 const aliveCount = computed(() =>
   Object.values(systemStore.services).filter(s => s.alive).length
 )
+
+const launching = ref(false)
+
+async function startServices() {
+  launching.value = true
+  try {
+    await fetch('/api/system/services/start', { method: 'POST' })
+  } catch (e) { /* ignore */ }
+  // Poll until launching is done
+  const poll = setInterval(async () => {
+    try {
+      const resp = await fetch('/api/system/services/launcher')
+      if (resp.ok) {
+        const data = await resp.json()
+        if (!data.launching) {
+          launching.value = false
+          clearInterval(poll)
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }, 2000)
+  // Safety timeout
+  setTimeout(() => { launching.value = false; clearInterval(poll) }, 60000)
+}
+
+async function stopServices() {
+  try {
+    await fetch('/api/system/services/stop', { method: 'POST' })
+  } catch (e) { /* ignore */ }
+}
+
+function confirmShutdown() {
+  if (confirm('Shutdown the Raspberry Pi? The web interface will become unavailable.')) {
+    fetch('/api/system/shutdown', { method: 'POST' })
+  }
+}
+
+function confirmReboot() {
+  if (confirm('Reboot the Raspberry Pi? Services will restart automatically.')) {
+    fetch('/api/system/reboot', { method: 'POST' })
+  }
+}
 
 // Hardware metrics (polled every 3 seconds)
 const metrics = reactive({
@@ -142,6 +217,86 @@ onUnmounted(() => {
   padding: 24px;
   margin-bottom: 24px;
   background: linear-gradient(135deg, var(--bg-card), var(--bg-elevated));
+}
+
+.hero-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-default), transparent);
+  margin: 20px 0 16px;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ctrl-spacer {
+  flex: 1;
+  min-width: 20px;
+}
+
+.ctrl-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-family: var(--text-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid;
+}
+.ctrl-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ctrl-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.ctrl-btn--start {
+  color: #00e676;
+  border-color: rgba(0, 230, 118, 0.3);
+  background: rgba(0, 230, 118, 0.08);
+}
+.ctrl-btn--start:hover:not(:disabled) {
+  background: rgba(0, 230, 118, 0.18);
+  box-shadow: 0 0 12px rgba(0, 230, 118, 0.2);
+}
+
+.ctrl-btn--stop {
+  color: #ff9800;
+  border-color: rgba(255, 152, 0, 0.3);
+  background: rgba(255, 152, 0, 0.08);
+}
+.ctrl-btn--stop:hover {
+  background: rgba(255, 152, 0, 0.18);
+  box-shadow: 0 0 12px rgba(255, 152, 0, 0.2);
+}
+
+.ctrl-btn--reboot {
+  color: #ffd600;
+  border-color: rgba(255, 214, 0, 0.3);
+  background: rgba(255, 214, 0, 0.06);
+}
+.ctrl-btn--reboot:hover {
+  background: rgba(255, 214, 0, 0.15);
+}
+
+.ctrl-btn--shutdown {
+  color: #ff3366;
+  border-color: rgba(255, 51, 102, 0.3);
+  background: rgba(255, 51, 102, 0.06);
+}
+.ctrl-btn--shutdown:hover {
+  background: rgba(255, 51, 102, 0.15);
+  box-shadow: 0 0 12px rgba(255, 51, 102, 0.2);
 }
 
 .hero-grid {

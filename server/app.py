@@ -17,6 +17,7 @@ from server.mqtt_bridge import MqttBridge
 from server.ws_manager import WebSocketManager
 from server.services.heartbeat_tracker import HeartbeatTracker
 from server.services.transcript_store import TranscriptStore
+from server.services.service_manager import ServiceManager
 from server.routers import trees, system, settings, navigation, bt_options, ai
 
 logger = logging.getLogger("qBc_ConfigMgr.app")
@@ -42,6 +43,7 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
     mqtt_bridge = MqttBridge(mqtt_broker, mqtt_port, ws_manager)
     heartbeat_tracker = HeartbeatTracker()
     transcript_store = TranscriptStore()
+    service_manager = ServiceManager(mqtt_bridge=mqtt_bridge)
 
     # Wire heartbeat tracker into MQTT bridge
     _orig_on_message = mqtt_bridge._on_message
@@ -89,6 +91,7 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
     app.state.mqtt_bridge = mqtt_bridge
     app.state.heartbeat_tracker = heartbeat_tracker
     app.state.transcript_store = transcript_store
+    app.state.service_manager = service_manager
 
     # REST routes
     app.include_router(system.router, prefix="/api/system", tags=["System"])
@@ -126,21 +129,26 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
             await ws_manager.disconnect(ws_id)
 
     # Startup / Shutdown
+    # Hook: re-broadcast all persisted settings whenever MQTT connects.
+    # This ensures settings are available as retained messages even if the
+    # broker started after the ConfigManager (e.g. via "Start Services").
+    def _broadcast_all_settings(client):
+        from server.routers.settings import (
+            _load_settings, MQTT_TOPIC_AUDIO, MQTT_TOPIC_DISPLAY,
+            MQTT_TOPIC_AI, MQTT_TOPIC_NAVIGATION,
+        )
+        s = _load_settings()
+        client.publish(MQTT_TOPIC_AUDIO, json.dumps(s["audio"]), qos=1, retain=True)
+        client.publish(MQTT_TOPIC_DISPLAY, json.dumps(s["display"]), qos=1, retain=True)
+        client.publish(MQTT_TOPIC_AI, json.dumps(s["ai"]), qos=1, retain=True)
+        client.publish(MQTT_TOPIC_NAVIGATION, json.dumps(s["navigation"]), qos=1, retain=True)
+        logger.info("Settings broadcast to MQTT")
+
+    mqtt_bridge._on_connect_hook = _broadcast_all_settings
+
     @app.on_event("startup")
     async def startup():
         mqtt_bridge.start()
-        # Broadcast persisted settings so nodes pick them up on (re)connect
-        from server.routers.settings import _load_settings, MQTT_TOPIC_AUDIO, MQTT_TOPIC_DISPLAY, MQTT_TOPIC_AI
-        all_settings = _load_settings()
-        mqtt_bridge._client.publish(
-            MQTT_TOPIC_AUDIO, json.dumps(all_settings["audio"]), qos=1, retain=True,
-        )
-        mqtt_bridge._client.publish(
-            MQTT_TOPIC_DISPLAY, json.dumps(all_settings["display"]), qos=1, retain=True,
-        )
-        mqtt_bridge._client.publish(
-            MQTT_TOPIC_AI, json.dumps(all_settings["ai"]), qos=1, retain=True,
-        )
         logger.info("qBc Configuration Manager started")
 
     @app.on_event("shutdown")

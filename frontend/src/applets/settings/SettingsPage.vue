@@ -125,6 +125,51 @@
       </div>
     </div>
 
+    <!-- Navigation -->
+    <h3 class="section-title section-gap">
+      <svg class="section-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M10 2L3 17h14L10 2zm0 4l4.5 9h-9L10 6z"/>
+      </svg>
+      Navigation
+    </h3>
+
+    <div class="volume-card bp-card bp-corners">
+      <div class="volume-row">
+        <div class="volume-header">
+          <span class="volume-label">Head Tracking Dead-zone</span>
+          <span class="volume-hint">Minimum horizontal error before neck servo moves — reduces jitter for ORB tracking</span>
+        </div>
+        <div class="slider-group">
+          <input
+            type="range" min="0" max="0.72" step="0.01"
+            :value="neckDeadzone"
+            @input="onDeadzoneInput"
+            class="bp-slider"
+          />
+          <span class="volume-value mono">{{ neckDeadzoneDisplay }}</span>
+        </div>
+        <div class="effective-volume mono">
+          ~{{ neckDeadzonePixels }}px horizontal tolerance
+        </div>
+      </div>
+
+      <div class="volume-divider"></div>
+
+      <div class="volume-row">
+        <div class="volume-header">
+          <span class="volume-label">Invert Head Tracking</span>
+          <span class="volume-hint">Enable if camera is mounted mirrored — flips horizontal tracking direction</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" v-model="neckInvert" @change="saveNavSettings" />
+          <span class="toggle-track">
+            <span class="toggle-thumb"></span>
+          </span>
+          <span class="toggle-label mono">{{ neckInvert ? 'INVERTED' : 'NORMAL' }}</span>
+        </label>
+      </div>
+    </div>
+
     <!-- Status indicator -->
     <div class="save-status mono" :class="{ visible: showSaved }">
       Settings saved
@@ -143,6 +188,8 @@ const animationVolume = ref(50)
 const aiReplyVolume = ref(50)
 const selectedColor = ref('orange')
 const selectedLanguage = ref('en')
+const neckDeadzone = ref(0.03)
+const neckInvert = ref(false)
 const showSaved = ref(false)
 
 const languages = [
@@ -164,9 +211,14 @@ const eyeColors = [
 ]
 
 let saveTimeout = null
+let navSaveTimeout = null
 let unsubscribe = null
 let unsubscribeDisplay = null
 let unsubscribeAi = null
+let unsubscribeNav = null
+
+const neckDeadzoneDisplay = computed(() => neckDeadzone.value.toFixed(3))
+const neckDeadzonePixels = computed(() => Math.round(neckDeadzone.value * 1330))
 
 const effectiveAnimation = computed(() =>
   Math.round(animationVolume.value * globalVolume.value / 100)
@@ -283,10 +335,63 @@ async function onLanguageSelect(code) {
   }
 }
 
+async function loadNavSettings() {
+  try {
+    const resp = await fetch('/api/settings/navigation')
+    if (resp.ok) {
+      const data = await resp.json()
+      neckDeadzone.value = data.neck_deadzone ?? 0.03
+      neckInvert.value = data.neck_invert ?? false
+    }
+  } catch (e) {
+    console.warn('[settings] Failed to load navigation:', e)
+  }
+}
+
+async function saveNavSettings() {
+  try {
+    const resp = await fetch('/api/settings/navigation', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        neck_deadzone: neckDeadzone.value,
+        neck_invert: neckInvert.value,
+      }),
+    })
+    if (resp.ok) {
+      showSaved.value = true
+      setTimeout(() => { showSaved.value = false }, 1500)
+    }
+  } catch (e) {
+    console.warn('[settings] Failed to save navigation:', e)
+  }
+}
+
+function onDeadzoneInput(e) {
+  neckDeadzone.value = Number(e.target.value)
+  if (navSaveTimeout) clearTimeout(navSaveTimeout)
+  navSaveTimeout = setTimeout(async () => {
+    try {
+      const resp = await fetch('/api/settings/navigation', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ neck_deadzone: neckDeadzone.value }),
+      })
+      if (resp.ok) {
+        showSaved.value = true
+        setTimeout(() => { showSaved.value = false }, 1500)
+      }
+    } catch (e) {
+      console.warn('[settings] Failed to save navigation:', e)
+    }
+  }, 300)
+}
+
 onMounted(() => {
   loadSettings()
   loadDisplaySettings()
   loadAiSettings()
+  loadNavSettings()
   // Listen for external changes via MQTT
   unsubscribe = mqttStore.subscribe('robot/settings/audio', (_topic, payload) => {
     try {
@@ -308,13 +413,22 @@ onMounted(() => {
       if (data.language) selectedLanguage.value = data.language
     } catch (e) { /* ignore */ }
   })
+  unsubscribeNav = mqttStore.subscribe('robot/settings/navigation', (_topic, payload) => {
+    try {
+      const data = typeof payload === 'string' ? JSON.parse(payload) : payload
+      if (data.neck_deadzone != null) neckDeadzone.value = data.neck_deadzone
+      if (data.neck_invert != null) neckInvert.value = data.neck_invert
+    } catch (e) { /* ignore */ }
+  })
 })
 
 onUnmounted(() => {
   if (unsubscribe) unsubscribe()
   if (unsubscribeDisplay) unsubscribeDisplay()
   if (unsubscribeAi) unsubscribeAi()
+  if (unsubscribeNav) unsubscribeNav()
   if (saveTimeout) clearTimeout(saveTimeout)
+  if (navSaveTimeout) clearTimeout(navSaveTimeout)
 })
 </script>
 
@@ -543,6 +657,54 @@ onUnmounted(() => {
   letter-spacing: 1px;
 }
 .lang-btn.active .lang-code {
+  color: var(--glow-primary);
+}
+
+/* ── Toggle switch ── */
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.toggle-switch input {
+  display: none;
+}
+.toggle-track {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: var(--bg-hover);
+  border-radius: 11px;
+  border: 1px solid var(--border-subtle);
+  transition: background 0.2s, border-color 0.2s;
+}
+.toggle-switch input:checked + .toggle-track {
+  background: rgba(0, 212, 255, 0.2);
+  border-color: var(--glow-primary);
+}
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: transform 0.2s, background 0.2s;
+}
+.toggle-switch input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(18px);
+  background: var(--glow-primary);
+  box-shadow: 0 0 6px rgba(0, 212, 255, 0.5);
+}
+.toggle-label {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+.toggle-switch input:checked ~ .toggle-label {
   color: var(--glow-primary);
 }
 

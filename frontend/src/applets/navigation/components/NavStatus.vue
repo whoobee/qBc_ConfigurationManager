@@ -1,18 +1,29 @@
 <template>
   <div class="nav-status bp-card bp-corners">
     <div class="status-grid">
-      <!-- Explore trigger button -->
+      <!-- Explore / Cancel button -->
       <div class="status-item">
         <button
+          v-if="!isNavigating"
           class="explore-btn"
-          :class="{ 'explore-btn--ready': allReady, 'explore-btn--busy': isNavigating }"
-          :disabled="!allReady || isNavigating"
+          :class="{ 'explore-btn--ready': allReady }"
+          :disabled="!allReady"
           @click="$emit('explore')"
         >
           <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
             <path d="M10 2a1 1 0 011 1v1.323l3.954 1.582a1 1 0 01.589.753l.457 3.2a1 1 0 01-.265.876L13 13.469V17a1 1 0 01-1 1h-4a1 1 0 01-1-1v-3.531L4.265 10.734a1 1 0 01-.265-.876l.457-3.2a1 1 0 01.589-.753L9 4.323V3a1 1 0 011-1z"/>
           </svg>
-          {{ isNavigating ? 'NAVIGATING...' : 'EXPLORE' }}
+          EXPLORE
+        </button>
+        <button
+          v-else
+          class="explore-btn explore-btn--cancel"
+          @click="$emit('cancel')"
+        >
+          <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>
+          </svg>
+          CANCEL NAV
         </button>
         <!-- Service readiness dots -->
         <div class="readiness-dots">
@@ -20,6 +31,13 @@
           <span class="dot" :class="svcReady('vision')" title="Vision">VIS</span>
           <span class="dot" :class="svcReady('teensy')" title="Teensy">HW</span>
           <span class="dot" :class="svcReady('navigation')" title="Navigation">NAV</span>
+        </div>
+        <!-- AI loading progress -->
+        <div class="svc-loading" v-if="aiLoading">
+          <div class="svc-loading-bar">
+            <div class="svc-loading-fill" :style="{ width: aiLoadingPct + '%' }"></div>
+          </div>
+          <span class="svc-loading-label mono">{{ aiLoadingMsg }}</span>
         </div>
       </div>
 
@@ -54,6 +72,10 @@
         <span class="status-label">NECK</span>
         <span class="status-value mono">{{ (state.neck_deg || 0).toFixed(1) }}&deg;</span>
       </div>
+      <div class="status-item">
+        <span class="status-label">FPS</span>
+        <span class="status-value mono" :class="fpsClass">{{ (state.fps || 0).toFixed(1) }}</span>
+      </div>
     </div>
   </div>
 </template>
@@ -66,9 +88,18 @@ const props = defineProps({
   state: { type: Object, default: () => ({}) },
 })
 
-defineEmits(['explore'])
+defineEmits(['explore', 'cancel'])
 
 const systemStore = useSystemStore()
+
+// AI loading progress
+const aiLoadingData = computed(() => systemStore.loadingProgress['ai'])
+const aiLoading = computed(() => {
+  const d = aiLoadingData.value
+  return d && d.percent < 100 && !isAiReady()
+})
+const aiLoadingPct = computed(() => aiLoadingData.value?.percent ?? 0)
+const aiLoadingMsg = computed(() => aiLoadingData.value?.message ?? '')
 
 // Service readiness checks
 function isAlive(name) {
@@ -108,6 +139,13 @@ const progressPct = computed(() => {
   const total = props.state.total_waypoints || 0
   if (total === 0) return 0
   return Math.round((props.state.current_waypoint / total) * 100)
+})
+
+const fpsClass = computed(() => {
+  const fps = props.state.fps || 0
+  if (fps >= 8) return 'text-glow'
+  if (fps >= 4) return 'text-warning'
+  return 'text-danger'
 })
 
 const featureClass = computed(() => {
@@ -216,11 +254,18 @@ const featureClass = computed(() => {
 .explore-btn--ready:active {
   transform: scale(0.97);
 }
-.explore-btn--busy {
-  color: #ffd600;
-  border-color: rgba(255, 214, 0, 0.3);
-  background: rgba(255, 214, 0, 0.08);
-  cursor: not-allowed;
+.explore-btn--cancel {
+  cursor: pointer;
+  color: #ff3366;
+  border-color: rgba(255, 51, 102, 0.5);
+  background: rgba(255, 51, 102, 0.12);
+}
+.explore-btn--cancel:hover {
+  background: rgba(255, 51, 102, 0.22);
+  box-shadow: 0 0 12px rgba(255, 51, 102, 0.2);
+}
+.explore-btn--cancel:active {
+  transform: scale(0.97);
 }
 .explore-btn:disabled:not(.explore-btn--busy) {
   opacity: 0.5;
@@ -263,6 +308,31 @@ const featureClass = computed(() => {
   vertical-align: middle;
   letter-spacing: 0.5px;
   text-transform: uppercase;
+}
+
+/* Service loading progress */
+.svc-loading {
+  margin-top: 6px;
+  width: 100%;
+}
+.svc-loading-bar {
+  height: 3px;
+  background: var(--bg-hover);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+.svc-loading-fill {
+  height: 100%;
+  background: var(--glow-primary);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 4px rgba(0, 212, 255, 0.4);
+}
+.svc-loading-label {
+  font-size: 0.5rem;
+  color: var(--glow-primary);
+  opacity: 0.7;
 }
 
 .text-warning { color: #ffd600; }

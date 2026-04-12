@@ -9,6 +9,7 @@ import { useMqttStore } from './mqtt.js'
 
 export const useSystemStore = defineStore('system', () => {
   const services = reactive({})
+  const loadingProgress = reactive({})  // service_name -> { percent, message, stage }
   const mqttConnected = ref(false)
   let unsubs = []
   let ageTimer = null
@@ -76,6 +77,15 @@ export const useSystemStore = defineStore('system', () => {
       services[name].errorInfo = typeof payload === 'string' ? payload : String(payload)
     }))
 
+    unsubs.push(mqtt.subscribe('robot/system/loading_progress', (topic, payload) => {
+      if (!payload || !payload.service) return
+      loadingProgress[payload.service] = {
+        percent: payload.percent ?? 0,
+        message: payload.message || '',
+        stage: payload.stage || '',
+      }
+    }))
+
     // Age tracker - mark services dead if no heartbeat for 5s
     ageTimer = setInterval(() => {
       const now = Date.now()
@@ -94,5 +104,5 @@ export const useSystemStore = defineStore('system', () => {
     if (ageTimer) clearInterval(ageTimer)
   }
 
-  return { services, mqttConnected, init, destroy }
+  return { services, loadingProgress, mqttConnected, init, destroy }
 })

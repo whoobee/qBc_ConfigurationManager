@@ -1,7 +1,7 @@
 <template>
   <div class="navigation-page">
     <!-- Status bar -->
-    <NavStatus :state="navState" @explore="triggerExplore" />
+    <NavStatus :state="navState" @explore="triggerExplore" @cancel="cancelNavigation" />
 
     <!-- Main content: two-column layout -->
     <div class="nav-grid">
@@ -75,6 +75,10 @@ let unsubs = []
 
 function triggerExplore() {
   mqttStore.publish('robot/ai/explore/cmd', { command: 'explore' }, 1)
+}
+
+function cancelNavigation() {
+  mqttStore.publish('robot/navigation/cmd', { command: 'cancel' }, 1)
 }
 
 let viewerInterval = null
