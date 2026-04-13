@@ -50,6 +50,8 @@ function actionColor(action) {
   if (action.includes('reached') || action.includes('complete')) return 'green'
   if (action.includes('safety') || action.includes('failed') || action.includes('lost')) return 'red'
   if (action.includes('recovery') || action.includes('warning')) return 'yellow'
+  if (action.startsWith('ai_') || action === 'explore_result') return 'purple'
+  if (action === 'audio_play') return 'green'
   return 'blue'
 }
 
@@ -143,6 +145,10 @@ watch(() => props.entries.length, async () => {
   background: rgba(0, 176, 255, 0.12);
   color: #00b0ff;
 }
+.badge--purple {
+  background: rgba(180, 100, 255, 0.12);
+  color: #b464ff;
+}
 .badge--dim {
   background: rgba(144, 164, 174, 0.08);
   color: var(--text-dim);
@@ -150,4 +156,5 @@ watch(() => props.entries.length, async () => {
 
 .row--red td { background: rgba(255, 51, 102, 0.03); }
 .row--green td { background: rgba(0, 230, 118, 0.03); }
+.row--purple td { background: rgba(180, 100, 255, 0.03); }
 </style>

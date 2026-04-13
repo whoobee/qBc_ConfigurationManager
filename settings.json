@@ -11,6 +11,7 @@
     "language": "en"
   },
   "navigation": {
-    "neck_deadzone": 0.35
+    "neck_deadzone": 0.35,
+    "neck_invert": false
   }
 }

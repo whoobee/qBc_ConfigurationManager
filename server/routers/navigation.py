@@ -17,12 +17,15 @@ logger = logging.getLogger("qBc_ConfigMgr.navigation")
 router = APIRouter()
 
 NAV_TEMP_DIR = Path(__file__).parent.parent.parent.parent / "qBc_Navigation" / "temp"
-LATEST_FRAME = NAV_TEMP_DIR / "latest_frame.jpg"
+# Debug frames are now written to shared memory for low-latency streaming
+SHM_FRAME = Path("/dev/shm/qb_debug_frame.jpg")
+# Fallback to disk path for backward compatibility
+DISK_FRAME = NAV_TEMP_DIR / "latest_frame.jpg"
 
 TOPIC_STREAM_REQ = "robot/navigation/stream/request"
 
-# Stream parameters
-STREAM_FPS = 3
+# Stream parameters — match the servoing frame rate for real-time debug view
+STREAM_FPS = 15
 FRAME_INTERVAL = 1.0 / STREAM_FPS
 
 # Track active viewers so the navigation service knows when to stop
@@ -58,11 +61,17 @@ async def _frame_generator(bridge):
             await asyncio.sleep(FRAME_INTERVAL)
 
             try:
-                if LATEST_FRAME.exists():
-                    mtime = LATEST_FRAME.stat().st_mtime
+                # Prefer SHM (RAM-backed), fall back to disk
+                frame_path = SHM_FRAME if SHM_FRAME.exists() else DISK_FRAME
+                if frame_path.exists():
+                    mtime = frame_path.stat().st_mtime
                     if mtime != last_mtime:
-                        frame_data = LATEST_FRAME.read_bytes()
-                        if frame_data:
+                        frame_data = frame_path.read_bytes()
+                        # Validate JPEG: must start with SOI and end with EOI marker
+                        if (frame_data
+                                and len(frame_data) > 4
+                                and frame_data[:2] == b"\xff\xd8"
+                                and frame_data[-2:] == b"\xff\xd9"):
                             last_mtime = mtime
                             yield (
                                 b"--frame\r\n"

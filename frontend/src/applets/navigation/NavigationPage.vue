@@ -99,6 +99,47 @@ onMounted(() => {
     }
   }))
 
+  // AI state transitions — shows explore pipeline stages
+  unsubs.push(mqttStore.subscribe('robot/ai/current_state', (topic, payload) => {
+    const state = typeof payload === 'string' ? payload : String(payload)
+    // Only log explore-related states and transitions
+    if (state.startsWith('explore:') || state === 'ready') {
+      logEntries.value.push({
+        timestamp: Date.now() / 1000,
+        action: 'ai_state',
+        details: state,
+      })
+      if (logEntries.value.length > MAX_LOG_ENTRIES) logEntries.value.shift()
+    }
+  }))
+
+  // AI explore result — narration and waypoints from VLM
+  unsubs.push(mqttStore.subscribe('robot/ai/explore/result', (topic, payload) => {
+    if (!payload) return
+    const wp = payload.waypoints?.length ?? 0
+    const narr = payload.analysis ? payload.analysis.substring(0, 80) : ''
+    logEntries.value.push({
+      timestamp: payload.timestamp || Date.now() / 1000,
+      action: 'explore_result',
+      details: `${wp} waypoints — "${narr}${narr.length >= 80 ? '...' : ''}"`,
+    })
+    if (logEntries.value.length > MAX_LOG_ENTRIES) logEntries.value.shift()
+  }))
+
+  // AI voice/TTS events — playback commands
+  unsubs.push(mqttStore.subscribe('robot/audio/play', (topic, payload) => {
+    if (!payload) return
+    const file = payload.file || ''
+    if (file.includes('explore') || file.includes('voice')) {
+      logEntries.value.push({
+        timestamp: Date.now() / 1000,
+        action: 'audio_play',
+        details: file.split('/').pop(),
+      })
+      if (logEntries.value.length > MAX_LOG_ENTRIES) logEntries.value.shift()
+    }
+  }))
+
   // Publish viewer heartbeat so the navigation service knows to capture frames.
   // Stops immediately when we leave this page (interval cleared in onUnmounted).
   mqttStore.publish('robot/navigation/stream/viewer', { active: true }, 0)
