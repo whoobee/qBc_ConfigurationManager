@@ -1,5 +1,5 @@
 <template>
-  <div class="logs-page h-full flex flex-col">
+  <div class="logs-page">
     <!-- Toolbar -->
     <div class="logs-toolbar flex items-center justify-between gap-4">
       <div class="flex items-center gap-3">
@@ -19,7 +19,7 @@
     </div>
 
     <!-- Log panels grid -->
-    <div class="logs-content flex-1 overflow-hidden">
+    <div class="logs-content">
       <div v-if="serviceNames.length === 0" class="empty-state">
         <span class="text-dim mono text-sm">NO SERVICES LAUNCHED — START SERVICES FROM DASHBOARD</span>
       </div>
@@ -157,7 +157,9 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .logs-page {
-  gap: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .logs-toolbar {
@@ -173,25 +175,24 @@ onBeforeUnmount(() => {
   border-top: none;
   border-radius: 0 0 var(--radius-md) var(--radius-md);
   background: var(--bg-primary);
-  overflow: hidden;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .empty-state {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  height: 200px;
   opacity: 0.5;
 }
 
-/* ── Grid layout — 2 columns like the TUI ── */
+/* ── Grid layout — 2 columns, panels have fixed min height ── */
 .log-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1px;
   background: var(--border-default);
-  height: 100%;
-  overflow: hidden;
 }
 
 /* ── Individual log panel ── */
@@ -199,8 +200,8 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
-  min-height: 0;
-  overflow: hidden;
+  min-width: 320px;
+  height: 400px;
 }
 
 .panel-header {
@@ -282,5 +283,15 @@ onBeforeUnmount(() => {
 }
 .bp-toggle input {
   accent-color: var(--glow-primary);
+}
+
+/* ── Responsive: single column on narrow screens ── */
+@media (max-width: 700px) {
+  .log-grid {
+    grid-template-columns: 1fr;
+  }
+  .log-panel {
+    min-width: 0;
+  }
 }
 </style>

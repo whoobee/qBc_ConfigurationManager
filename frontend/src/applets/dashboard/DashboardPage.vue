@@ -95,6 +95,8 @@
         :errorInfo="svc.errorInfo"
         :loadingPercent="loadingProgress[name]?.percent ?? null"
         :loadingMessage="loadingProgress[name]?.message ?? ''"
+        :restarting="restartingServices[name] || false"
+        @restart="restartService"
       />
     </div>
   </div>
@@ -121,6 +123,27 @@ const aliveCount = computed(() =>
 )
 
 const launching = ref(false)
+const restartingServices = reactive({})
+
+async function restartService(mqttName) {
+  if (restartingServices[mqttName]) return
+  restartingServices[mqttName] = true
+  try {
+    const resp = await fetch(`/api/system/services/${encodeURIComponent(mqttName)}/restart`, {
+      method: 'POST',
+    })
+    if (resp.ok) {
+      const data = await resp.json()
+      if (data.status === 'error') {
+        console.warn('Restart failed:', data.message)
+      }
+    }
+  } catch (e) {
+    console.error('Restart request failed:', e)
+  }
+  // Keep the spinner for a short while to show feedback
+  setTimeout(() => { restartingServices[mqttName] = false }, 3000)
+}
 
 async function startServices() {
   launching.value = true

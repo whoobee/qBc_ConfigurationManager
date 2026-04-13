@@ -1,20 +1,20 @@
 <template>
-  <aside class="sidebar">
+  <aside class="sidebar" :class="{ collapsed }">
     <!-- Logo area -->
     <div class="sidebar-logo">
-      <div class="logo-icon">
-        <svg viewBox="0 0 40 40" class="logo-svg">
-          <circle cx="14" cy="17" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-          <circle cx="26" cy="17" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-          <circle cx="14" cy="17" r="2" fill="currentColor" opacity="0.7"/>
-          <circle cx="26" cy="17" r="2" fill="currentColor" opacity="0.7"/>
-          <path d="M12 28 Q20 34 28 28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      <button class="hamburger-btn" @click="toggle" :title="collapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <line x1="3" y1="5" x2="17" y2="5"/>
+          <line x1="3" y1="10" x2="17" y2="10"/>
+          <line x1="3" y1="15" x2="17" y2="15"/>
         </svg>
-      </div>
-      <div class="logo-text">
-        <span class="logo-title text-glow">qB</span>
-        <span class="logo-sub">CONFIG</span>
-      </div>
+      </button>
+      <transition name="fade-text">
+        <div v-if="!collapsed" class="logo-text">
+          <span class="logo-title text-glow">qB</span>
+          <span class="logo-sub">CONFIG</span>
+        </div>
+      </transition>
     </div>
 
     <div class="sidebar-divider"></div>
@@ -22,16 +22,19 @@
     <!-- Nav groups -->
     <nav class="sidebar-nav">
       <template v-for="(apps, category) in groupedApplets" :key="category">
-        <div class="nav-group-label">{{ category }}</div>
+        <div v-if="!collapsed" class="nav-group-label">{{ category }}</div>
         <router-link
           v-for="app in apps"
           :key="app.id"
           :to="app.route"
           class="nav-item"
           :class="{ active: $route.meta.appletId === app.id }"
+          :title="collapsed ? app.name : ''"
         >
           <span class="nav-icon" v-html="getIcon(app.icon)"></span>
-          <span class="nav-label">{{ app.name }}</span>
+          <transition name="fade-text">
+            <span v-if="!collapsed" class="nav-label">{{ app.name }}</span>
+          </transition>
           <span v-if="$route.meta.appletId === app.id" class="nav-indicator"></span>
         </router-link>
       </template>
@@ -42,20 +45,30 @@
       <div class="sidebar-divider"></div>
       <div class="mqtt-status" :class="{ connected: mqttConnected }">
         <span class="status-dot" :class="mqttConnected ? 'alive' : 'dead'"></span>
-        <span class="mono text-xs">{{ mqttConnected ? 'MQTT ONLINE' : 'MQTT OFFLINE' }}</span>
+        <transition name="fade-text">
+          <span v-if="!collapsed" class="mono text-xs">{{ mqttConnected ? 'MQTT ONLINE' : 'MQTT OFFLINE' }}</span>
+        </transition>
       </div>
     </div>
+
   </aside>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useMqttStore } from '../stores/mqtt.js'
 import { getAppletsByCategory } from '../applets/registry.js'
 
 const mqttStore = useMqttStore()
 const mqttConnected = computed(() => mqttStore.connected)
 const groupedApplets = getAppletsByCategory()
+
+const collapsed = ref(localStorage.getItem('sidebar-collapsed') === 'true')
+
+function toggle() {
+  collapsed.value = !collapsed.value
+  localStorage.setItem('sidebar-collapsed', collapsed.value)
+}
 
 const icons = {
   grid: '<svg viewBox="0 0 20 20" fill="currentColor"><rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/></svg>',
@@ -64,6 +77,8 @@ const icons = {
   network: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="4" r="2.5" fill="currentColor" opacity="0.3"/><circle cx="4" cy="16" r="2.5" fill="currentColor" opacity="0.3"/><circle cx="16" cy="16" r="2.5" fill="currentColor" opacity="0.3"/><line x1="10" y1="6.5" x2="5.5" y2="13.5"/><line x1="10" y1="6.5" x2="14.5" y2="13.5"/><line x1="6.5" y1="16" x2="13.5" y2="16"/></svg>',
   ai: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="3" width="12" height="10" rx="2"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="12" cy="8" r="1.5" fill="currentColor"/><path d="M4 13v1a2 2 0 002 2h8a2 2 0 002-2v-1"/><line x1="10" y1="16" x2="10" y2="18"/><line x1="7" y1="18" x2="13" y2="18"/></svg>',
   logs: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="14" height="14" rx="2"/><line x1="6" y1="7" x2="14" y2="7"/><line x1="6" y1="10" x2="14" y2="10"/><line x1="6" y1="13" x2="11" y2="13"/></svg>',
+  settings: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="3"/><path d="M10 1.5v2M10 16.5v2M1.5 10h2M16.5 10h2M3.4 3.4l1.4 1.4M15.2 15.2l1.4 1.4M3.4 16.6l1.4-1.4M15.2 4.8l1.4-1.4"/></svg>',
+  compass: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="8"/><polygon points="7,13 9,9 13,7 11,11" fill="currentColor" opacity="0.5"/></svg>',
 }
 
 function getIcon(name) {
@@ -81,6 +96,11 @@ function getIcon(name) {
   flex-direction: column;
   flex-shrink: 0;
   overflow: hidden;
+  transition: width var(--transition-med);
+  position: relative;
+}
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed-width);
 }
 
 .sidebar-logo {
@@ -89,12 +109,11 @@ function getIcon(name) {
   gap: 10px;
   padding: 16px;
   height: var(--topbar-height);
+  overflow: hidden;
 }
-.logo-icon {
-  width: 36px;
-  height: 36px;
-  color: var(--glow-primary);
-  filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.4));
+.collapsed .sidebar-logo {
+  justify-content: center;
+  padding: 16px 0;
 }
 .logo-svg { width: 100%; height: 100%; }
 .logo-title {
@@ -111,11 +130,17 @@ function getIcon(name) {
   display: block;
   margin-top: -4px;
 }
+.logo-text {
+  white-space: nowrap;
+}
 
 .sidebar-divider {
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--border-default), transparent);
   margin: 0 12px;
+}
+.collapsed .sidebar-divider {
+  margin: 0 6px;
 }
 
 .sidebar-nav {
@@ -131,6 +156,7 @@ function getIcon(name) {
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 2px;
+  white-space: nowrap;
 }
 
 .nav-item {
@@ -146,6 +172,13 @@ function getIcon(name) {
   font-weight: 500;
   transition: all var(--transition-fast);
   position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.collapsed .nav-item {
+  padding: 10px 0;
+  justify-content: center;
+  margin: 2px 4px;
 }
 .nav-item:hover {
   background: var(--bg-hover);
@@ -163,6 +196,9 @@ function getIcon(name) {
   opacity: 0.7;
 }
 .nav-item.active .nav-icon { opacity: 1; }
+.nav-label {
+  white-space: nowrap;
+}
 .nav-indicator {
   position: absolute;
   left: 0;
@@ -178,12 +214,55 @@ function getIcon(name) {
 .sidebar-footer {
   padding: 12px 16px;
 }
+.collapsed .sidebar-footer {
+  padding: 12px 8px;
+}
 .mqtt-status {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 0;
   color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.collapsed .mqtt-status {
+  justify-content: center;
 }
 .mqtt-status.connected { color: var(--glow-success); }
+
+/* Hamburger toggle button */
+.hamburger-btn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+.hamburger-btn:hover {
+  color: var(--glow-primary);
+  background: var(--bg-hover);
+}
+.hamburger-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Text fade transition */
+.fade-text-enter-active,
+.fade-text-leave-active {
+  transition: opacity 0.15s ease;
+}
+.fade-text-enter-from,
+.fade-text-leave-to {
+  opacity: 0;
+}
 </style>

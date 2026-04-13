@@ -14,12 +14,14 @@ import signal
 import subprocess
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger("qBc_ConfigMgr.svc_mgr")
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 LAUNCH_FILE = PROJECT_ROOT / "qBc_Launcher" / "launchfiles" / "launch.json"
+LOG_DIR = PROJECT_ROOT / "qBc_Launcher" / "logs"
 STARTUP_GRACE = 2.0  # seconds between services when wait_prev is set
 LOG_BUFFER_SIZE = 500  # lines per service
 
@@ -33,6 +35,8 @@ class ServiceManager:
     def __init__(self, mqtt_bridge=None):
         self._procs: dict[str, subprocess.Popen] = {}  # name -> Popen
         self._logs: dict[str, collections.deque] = {}   # name -> deque of (ts, line)
+        self._log_files: dict[str, object] = {}         # name -> open file handle
+        self._session_dir: Path | None = None
         self._lock = threading.Lock()
         self._starting = False
         self._thread: threading.Thread | None = None
@@ -93,12 +97,25 @@ class ServiceManager:
         if not entries:
             return {"status": "error", "message": "No services in launch config"}
 
-        # Pre-create log buffers in launch order
+        # Create session log directory
+        timestamp = datetime.now().strftime("%d-%m-%y_%H-%M-%S")
+        self._session_dir = LOG_DIR / timestamp
+        self._session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Pre-create log buffers and log files in launch order
         with self._lock:
+            # Close any leftover log files from a previous session
+            for lf in self._log_files.values():
+                if lf and not lf.closed:
+                    lf.close()
             self._logs.clear()
+            self._log_files.clear()
             for entry in entries:
                 name = entry.get("name", "unknown")
                 self._logs[name] = collections.deque(maxlen=LOG_BUFFER_SIZE)
+                safe_name = name.replace(" ", "-")
+                log_path = self._session_dir / f"{safe_name}.log"
+                self._log_files[name] = open(log_path, "w")
 
         self._starting = True
         self._thread = threading.Thread(
@@ -106,6 +123,84 @@ class ServiceManager:
         )
         self._thread.start()
         return {"status": "ok", "message": f"Starting {len(entries)} services"}
+
+    def _find_service(self, name: str):
+        """Find a managed service by exact or fuzzy name match.
+
+        Accepts launch.json names (e.g. "Audio Service") or MQTT-style
+        names (e.g. "audio") and returns (canonical_name, proc) or (None, None).
+        """
+        with self._lock:
+            # Exact match first
+            if name in self._procs:
+                return name, self._procs[name]
+            # Normalize: lowercase, strip common suffixes, remove separators
+            def _norm(s):
+                return s.lower().replace("_", "").replace(" ", "").replace("-", "")
+            needle = _norm(name)
+            for svc_name, proc in self._procs.items():
+                # Match "audio" → "Audio Service", "llm" → "LLM Server", etc.
+                candidate = _norm(svc_name)
+                if needle == candidate or candidate.startswith(needle):
+                    return svc_name, proc
+            return None, None
+
+    def restart_service(self, name: str) -> dict:
+        """Restart a single managed service by name."""
+        svc_name, proc = self._find_service(name)
+        if svc_name is None:
+            return {"status": "error", "message": f"Unknown service: {name}"}
+
+        # Find the matching launch config entry
+        entries = self._load_config()
+        entry = None
+        for e in entries:
+            if e.get("name") == svc_name:
+                entry = e
+                break
+        if entry is None:
+            return {"status": "error", "message": f"No config for service: {svc_name}"}
+
+        # Stop the running process
+        if proc.poll() is None:
+            logger.info("Stopping %s (PID %d) for restart...", svc_name, proc.pid)
+            self._append_log(svc_name, f"[Restarting {svc_name}...]")
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                pass
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                logger.warning("Force-killing %s (PID %d)", svc_name, proc.pid)
+                try:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                except (ProcessLookupError, PermissionError):
+                    pass
+                proc.wait(timeout=2)
+
+        self._append_log(svc_name, f"[{svc_name} stopped — restarting...]")
+
+        # Start the process again
+        try:
+            new_proc = self._start_process(entry)
+            with self._lock:
+                self._procs[svc_name] = new_proc
+            self._append_log(svc_name, f"[Restarted PID {new_proc.pid}]")
+            logger.info("Restarted %s (PID %d)", svc_name, new_proc.pid)
+
+            # Spawn reader thread for the new process
+            reader = threading.Thread(
+                target=self._read_output, args=(svc_name, new_proc), daemon=True,
+            )
+            reader.start()
+            self._readers.append(reader)
+
+            return {"status": "ok", "message": f"Restarted {svc_name} (PID {new_proc.pid})"}
+        except Exception as e:
+            logger.error("Failed to restart %s: %s", svc_name, e)
+            self._append_log(svc_name, f"[Failed to restart: {e}]")
+            return {"status": "error", "message": str(e)}
 
     def stop_all(self) -> dict:
         """Stop all managed services gracefully."""
@@ -140,6 +235,9 @@ class ServiceManager:
 
         with self._lock:
             self._procs.clear()
+            for lf in self._log_files.values():
+                if lf and not lf.closed:
+                    lf.close()
 
         logger.info("All services stopped")
         return {"status": "ok", "message": f"Stopped {len(procs)} services"}
@@ -176,11 +274,18 @@ class ServiceManager:
             )
 
     def _append_log(self, name: str, text: str):
-        """Append a log line to the service's ring buffer."""
+        """Append a log line to the service's ring buffer and log file."""
         with self._lock:
             buf = self._logs.get(name)
             if buf is not None:
                 buf.append((time.time(), text))
+            lf = self._log_files.get(name)
+            if lf is not None:
+                try:
+                    lf.write(text + "\n")
+                    lf.flush()
+                except (ValueError, OSError):
+                    pass
 
     def _read_output(self, name: str, proc: subprocess.Popen):
         """Read process stdout line-by-line and store in ring buffer."""
@@ -250,18 +355,42 @@ class ServiceManager:
             self._starting = False
 
     def _start_process(self, entry: dict) -> subprocess.Popen:
-        """Start a single service subprocess with stdout capture."""
+        """Start a single service subprocess with stdout capture.
+
+        Supports three modes via the entry dict:
+          - "command" (list[str]): Run a raw command directly (no Python/venv).
+          - "script" + "venv": Activate venv, then run Python script.
+          - "script" only: Run with current Python interpreter.
+        """
         launcher_dir = LAUNCH_FILE.parent.parent
-        script_path = str((launcher_dir / entry["script"]).resolve())
-        script_dir = str(Path(script_path).parent)
         args = entry.get("args", [])
-        venv = entry.get("venv", "")
 
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
         env.setdefault("DISPLAY", ":0")
         env.setdefault("WAYLAND_DISPLAY", "wayland-0")
         env.setdefault("XDG_RUNTIME_DIR", "/run/user/1000")
+
+        # Raw command mode (for non-Python binaries like axllm, whisper_srv)
+        if "command" in entry:
+            cmd = list(entry["command"]) + args
+            cwd = entry.get("cwd", str(PROJECT_ROOT))
+            proc = subprocess.Popen(
+                cmd,
+                cwd=cwd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                env=env,
+                text=True,
+                bufsize=1,
+                start_new_session=True,
+            )
+            return proc
+
+        # Python script mode
+        script_path = str((launcher_dir / entry["script"]).resolve())
+        script_dir = str(Path(script_path).parent)
+        venv = entry.get("venv", "")
 
         if venv:
             activate = str((launcher_dir / venv / "bin" / "activate").resolve())

@@ -11,6 +11,15 @@
         <span class="mono text-xs" :class="connClass">{{ connLabel }}</span>
       </div>
       <div class="flex items-center gap-2">
+        <button
+          class="bp-btn trigger-btn text-xs"
+          :class="{ 'trigger-btn--active': audioState === 'voice_recording' }"
+          :disabled="audioState === 'voice_recording' || audioState === 'playing'"
+          @click="triggerWakeWord"
+        >
+          <span class="trigger-icon">&#9679;</span>
+          {{ triggerLabel }}
+        </button>
         <label class="bp-toggle text-xs">
           <input type="checkbox" v-model="autoScroll" />
           AUTO-SCROLL
@@ -73,7 +82,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useMqttStore } from '../../stores/mqtt.js'
 
 const transcripts = ref([])
@@ -81,8 +90,16 @@ const autoScroll = ref(true)
 const listRef = ref(null)
 const connLabel = ref('CONNECTING...')
 const connClass = ref('text-dim')
+const audioState = ref('idle')
+
+const triggerLabel = computed(() => {
+  if (audioState.value === 'voice_recording') return 'RECORDING...'
+  if (audioState.value === 'playing') return 'PLAYING...'
+  return 'TRIGGER'
+})
 
 let unsubTranscript = null
+let unsubAudioState = null
 
 onMounted(async () => {
   // Hydrate from REST API (buffered transcripts from before page load)
@@ -109,6 +126,15 @@ onMounted(async () => {
     }
   })
 
+  // Subscribe to audio state for trigger button feedback
+  unsubAudioState = mqtt.subscribe('robot/audio/current_state', (topic, payload) => {
+    if (typeof payload === 'string') {
+      audioState.value = payload
+    } else if (payload?.state) {
+      audioState.value = payload.state
+    }
+  })
+
   // Set initial connection status
   if (mqtt.connected) {
     connLabel.value = 'LIVE'
@@ -118,6 +144,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (unsubTranscript) unsubTranscript()
+  if (unsubAudioState) unsubAudioState()
 })
 
 function scrollToBottom() {
@@ -132,6 +159,11 @@ function formatTime(ts) {
   if (!ts) return '--:--:--'
   const d = new Date(ts * 1000)
   return d.toLocaleTimeString('en-GB', { hour12: false })
+}
+
+function triggerWakeWord() {
+  const mqtt = useMqttStore()
+  mqtt.publish('robot/audio/cmd', { command: 'trigger_wake_word' })
 }
 
 async function clearTranscripts() {
@@ -316,4 +348,40 @@ async function clearTranscripts() {
 }
 
 .status-ok { color: var(--glow-success) !important; }
+
+/* ── Trigger Button ── */
+.trigger-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border: 1px solid rgba(46, 204, 113, 0.4);
+  background: rgba(46, 204, 113, 0.08);
+  color: #2ecc71;
+  transition: all 0.2s;
+}
+.trigger-btn:hover:not(:disabled) {
+  background: rgba(46, 204, 113, 0.18);
+  border-color: rgba(46, 204, 113, 0.6);
+}
+.trigger-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.trigger-btn--active {
+  border-color: rgba(231, 76, 60, 0.6);
+  background: rgba(231, 76, 60, 0.12);
+  color: #e74c3c;
+}
+.trigger-icon {
+  font-size: 0.55rem;
+  line-height: 1;
+}
+.trigger-btn--active .trigger-icon {
+  animation: pulse-red 1s ease-in-out infinite;
+}
+@keyframes pulse-red {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
 </style>

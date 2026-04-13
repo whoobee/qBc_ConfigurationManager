@@ -6,6 +6,22 @@
       <span class="service-age mono text-xs text-dim" v-if="age !== null">
         {{ alive ? `${age}s` : `${age}s ago` }}
       </span>
+      <button
+        class="restart-btn"
+        :class="{ 'restart-btn--busy': restarting }"
+        :disabled="restarting"
+        @click.stop="$emit('restart', name)"
+        :title="`Restart ${displayName}`"
+      >
+        <svg
+          class="restart-icon"
+          :class="{ spinning: restarting }"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"/>
+        </svg>
+      </button>
     </div>
     <div class="card-status-bar" v-if="currentState || errorInfo">
       <div class="status-item" v-if="currentState">
@@ -50,7 +66,10 @@ const props = defineProps({
   errorInfo: String,
   loadingPercent: { type: Number, default: null },
   loadingMessage: { type: String, default: '' },
+  restarting: { type: Boolean, default: false },
 })
+
+defineEmits(['restart'])
 
 const displayName = computed(() => {
   return props.name
@@ -96,6 +115,49 @@ function stateClass(key, val) {
 }
 .service-age {
   flex-shrink: 0;
+}
+
+/* ── Restart button ── */
+.restart-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 152, 0, 0.25);
+  border-radius: 5px;
+  background: rgba(255, 152, 0, 0.06);
+  color: #ff9800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+.restart-btn:hover:not(:disabled) {
+  background: rgba(255, 152, 0, 0.18);
+  box-shadow: 0 0 8px rgba(255, 152, 0, 0.25);
+  border-color: rgba(255, 152, 0, 0.5);
+}
+.restart-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.restart-btn--busy {
+  color: var(--glow-primary);
+  border-color: rgba(0, 212, 255, 0.3);
+  background: rgba(0, 212, 255, 0.08);
+}
+
+.restart-icon {
+  width: 14px;
+  height: 14px;
+}
+.restart-icon.spinning {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .card-status-bar {

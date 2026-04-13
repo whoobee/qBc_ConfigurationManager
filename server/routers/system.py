@@ -77,6 +77,13 @@ async def get_launcher_status(request: Request):
     return svc_mgr.get_status()
 
 
+@router.post("/services/{service_name}/restart")
+async def restart_service(request: Request, service_name: str):
+    """Restart a single managed service by name."""
+    svc_mgr = request.app.state.service_manager
+    return svc_mgr.restart_service(service_name)
+
+
 @router.post("/shutdown")
 async def shutdown_system():
     """Shutdown the Raspberry Pi."""
