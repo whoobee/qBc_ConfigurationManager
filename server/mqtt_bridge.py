@@ -50,6 +50,14 @@ class MqttBridge:
         # Per-topic throttle tracking
         self._last_forward: dict[str, float] = {}
 
+        # Behavior service state tracking — used by the animations
+        # router to wait for a safe-point pause before triggering test
+        # playback. The bridge already subscribes to
+        # robot/+/current_state via _ALWAYS_SUBSCRIBE, so we just snoop
+        # messages as they flow through _on_message.
+        self._behavior_state: str = "unknown"
+        self._behavior_state_cond = threading.Condition()
+
         # Optional callback invoked after MQTT connects (used to re-broadcast settings)
         self._on_connect_hook = None
 
@@ -79,6 +87,28 @@ class MqttBridge:
     @property
     def connected(self) -> bool:
         return self._connected
+
+    @property
+    def behavior_state(self) -> str:
+        """Latest robot/behavior/current_state value seen by the bridge."""
+        with self._behavior_state_cond:
+            return self._behavior_state
+
+    def wait_for_behavior_state(self, target: str, timeout: float) -> bool:
+        """Block until robot/behavior/current_state == `target`.
+
+        Returns True if the target was reached, False on timeout. Safe
+        to call from a worker thread (the animations router uses
+        asyncio.to_thread to avoid blocking the event loop).
+        """
+        deadline = time.monotonic() + timeout
+        with self._behavior_state_cond:
+            while self._behavior_state != target:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return False
+                self._behavior_state_cond.wait(timeout=remaining)
+            return True
 
     def start(self):
         """Connect to MQTT and start the network loop."""
@@ -153,6 +183,19 @@ class MqttBridge:
 
     def _on_message(self, client, userdata, msg):
         """Forward MQTT message to matching WebSocket clients."""
+        # Snoop behavior state transitions before anything else — we
+        # want to observe pause_pending → paused even if the throttle
+        # gate below would drop a forward to WS clients.
+        if msg.topic == "robot/behavior/current_state":
+            try:
+                state = msg.payload.decode("utf-8", errors="replace").strip()
+            except Exception:
+                state = ""
+            if state:
+                with self._behavior_state_cond:
+                    self._behavior_state = state
+                    self._behavior_state_cond.notify_all()
+
         # Throttle check
         throttle = WS_THROTTLE.get(msg.topic)
         if throttle:
