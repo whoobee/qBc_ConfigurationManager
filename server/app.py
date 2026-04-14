@@ -18,13 +18,14 @@ from server.ws_manager import WebSocketManager
 from server.services.heartbeat_tracker import HeartbeatTracker
 from server.services.transcript_store import TranscriptStore
 from server.services.service_manager import ServiceManager
-from server.routers import trees, system, settings, navigation, bt_options, ai
+from server.routers import trees, system, settings, navigation, bt_options, ai, animations, rig
 
 logger = logging.getLogger("qBc_ConfigMgr.app")
 
 FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 INDEX_HTML = FRONTEND_DIST / "index.html"
 NAV_DEBUG_DIR = Path(__file__).parent.parent.parent / "qBc_Navigation" / "debug"
+FRONTEND_RESOURCES = Path(__file__).parent.parent / "frontend" / "resources"
 
 
 def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI:
@@ -100,6 +101,8 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
     app.include_router(navigation.router, prefix="/api/navigation", tags=["Navigation"])
     app.include_router(bt_options.router, prefix="/api/bt-options", tags=["BT Options"])
     app.include_router(ai.router, prefix="/api/ai", tags=["AI"])
+    app.include_router(animations.router, prefix="/api/animations", tags=["Animations"])
+    app.include_router(rig.router, prefix="/api/rig", tags=["Rig"])
 
     # WebSocket endpoint
     @app.websocket("/ws")
@@ -155,6 +158,14 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
     async def shutdown():
         mqtt_bridge.stop()
         logger.info("qBc Configuration Manager stopped")
+
+    # ── Frontend resource files (3D models, etc.) ──
+    if FRONTEND_RESOURCES.exists():
+        app.mount(
+            "/resources",
+            StaticFiles(directory=str(FRONTEND_RESOURCES)),
+            name="frontend_resources",
+        )
 
     # ── Navigation debug images ──
     if NAV_DEBUG_DIR.exists():

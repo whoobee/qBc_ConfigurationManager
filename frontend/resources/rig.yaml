@@ -1,0 +1,92 @@
+# Rig configuration for the qB Companion animation editor.
+#
+# Served live from /resources/rig.yaml — edit and refresh the browser,
+# no rebuild needed. Loaded by src/applets/animation-editor/viewport/rig-loader.js.
+#
+# Coordinate frame: CAD millimeters, Z-up. The viewport root scales by
+# 0.001 (mm → m) and rotates -90° about X so CAD Z-up becomes three.js
+# Y-up. Every number in this file is in CAD mm.
+#
+# Joint names MUST match keys in qBc_Servos/servo_calibration.json.
+#
+# This file is written by the Animation Editor "Rig Mode" — you can also
+# edit it by hand, comments between entries will be lost on the next save.
+
+unitScale: 0.001
+zUpToYUp: true
+models:
+  body: {obj: qB-Body.obj, mtl: qB-Body.mtl}
+  head: {obj: qB-Head.obj, mtl: qB-Head.mtl}
+  antenna_left: {obj: qB-Antenna-Left.obj, mtl: qB-Antenna-Left.mtl}
+  front_leg_right: {obj: qB-FrontLeg-Right.obj, mtl: qB-FrontLeg-Right.mtl}
+  back_leg_left: {obj: qB-BackLeg-Left.obj, mtl: qB-BackLeg-Left.mtl}
+body:
+  model:
+    name: body
+    translate: [0, 0, 0]
+joints:
+  neck:
+    parent: null
+    pivot: [0, 0, 90]
+    axis: z
+    limits: [-90, 90]
+    model:
+      name: head
+      translate: [-120.35789506432052, 0, 38.146436618268574]
+  left_ear:
+    parent: neck
+    pivot: [4.972532186411222, -62.000000000000014, 147.68330620194038]
+    axis: y
+    limits: [-90, 90]
+    model:
+      name: antenna_left
+      translate: [-120.05136016627077, 0, 39.132405223685566]
+  right_ear:
+    parent: neck
+    pivot: [4.950672455559328, 62.00000000000002, 147.56743776834085]
+    axis: y
+    limits: [-90, 90]
+    model:
+      name: antenna_left
+      translate: [-119.90520481467581, 0, 38.620544473254]
+      mirror: y
+  right_front_leg:
+    parent: null
+    pivot: [19.81443372099271, -50.00000000000008, 68.60816635422368]
+    axis: y
+    limits: [-45, 45]
+    model:
+      name: front_leg_right
+      translate: [75.76106881206042, -1.599999999999973, 116.24670133382517]
+      rotate: [179.99999999999994, -69.09792712561469, 179.99999999999997]
+  left_front_leg:
+    parent: null
+    pivot: [20.257571669694077, 50.00000000000002, 67.54951226657184]
+    axis: y
+    limits: [-45, 45]
+    model:
+      name: front_leg_right
+      translate: [76.0632333814306, 1.5999920896584712, 115.29493013260597]
+      mirror: y
+      rotate: [-179.99997642904216, -69.4039215037587, -179.9999731800308]
+  # NOTE: back leg naming matches the front-leg / servo convention —
+  # robot's left side = +Y, robot's right side = −Y. The underlying OBJ
+  # is qB-BackLeg-Left.obj so the +Y (left) entry uses it unmodified and
+  # the −Y (right) entry mirrors it across Y.
+  right_back_leg:
+    parent: null
+    pivot: [-25.21731537132371, -50.000000000000036, 68.94933050343843]
+    axis: y
+    limits: [-45, 45]
+    model:
+      name: back_leg_left
+      translate: [-0.40000000000000213, -1.6000000000000014, 0]
+  left_back_leg:
+    parent: null
+    pivot: [-25.27096975492859, 50.000000000000036, 68.93833601085305]
+    axis: y
+    limits: [-45, 45]
+    model:
+      name: back_leg_left
+      translate: [-0.40000000000000213, 1.6000000000000014, 0]
+      mirror: y
