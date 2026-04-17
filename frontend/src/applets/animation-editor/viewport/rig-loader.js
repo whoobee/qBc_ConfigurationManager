@@ -350,10 +350,64 @@ export async function loadRig() {
     restRotGroup: bodyRestRotGroup,
   }
 
+  // ── Eye display plane ──
+  // If rig.yaml defines a `display` section, create a textured plane
+  // parented to the designated joint's mesh group. This means the plane
+  // inherits both the joint rotation (e.g. neck turning) and the mesh's
+  // rest rotation / position — it tracks the head exactly.
+  //
+  // `offset` and `rotate` in the YAML are relative to the mesh group
+  // origin, so you can position the screen on the head without knowing
+  // the pivot coordinates. Adjust them in rig.yaml and refresh.
+  let display = null
+  if (RIG.display) {
+    const d = RIG.display
+    const [pw, ph] = d.size || [96, 58]
+    const off = d.offset || [0, 0, 0]
+    const rot = d.rotate || [0, 0, 0]
+
+    // Find the parent mesh group from the named joint.
+    const jointEntry = d.joint ? joints.get(d.joint) : null
+    const parentGroup = jointEntry ? jointEntry.meshGroup : rigRoot
+
+    const geo = new THREE.PlaneGeometry(pw, ph)
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      side: THREE.FrontSide,
+    })
+    const mesh = new THREE.Mesh(geo, mat)
+    mesh.name = 'eye-display'
+    mesh.userData.rigEntry = { kind: 'display' }
+
+    // Apply offset (CAD mm, relative to head mesh origin).
+    mesh.position.set(off[0], off[1], off[2])
+
+    // Apply rotation (degrees, relative to head mesh).
+    mesh.rotation.set(
+      (rot[0] * Math.PI) / 180,
+      (rot[1] * Math.PI) / 180,
+      (rot[2] * Math.PI) / 180,
+      'XYZ',
+    )
+
+    parentGroup.add(mesh)
+
+    display = {
+      mesh,
+      material: mat,
+      setTexture(texture) {
+        mat.map = texture
+        mat.color.set(0xffffff)
+        mat.needsUpdate = true
+      },
+    }
+  }
+
   return {
     rigRoot,
     joints,
     body,
+    display,
     config: RIG,
     dispose() {
       rigRoot.traverse((obj) => {

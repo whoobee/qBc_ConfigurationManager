@@ -15,7 +15,8 @@ import { loadRig } from './rig-loader.js'
 import { attachJointControls } from './joint-controls.js'
 import { createRigEditMode } from './rig-edit-mode.js'
 import { initPose, subscribe as subscribePose, setPose } from './pose-store.js'
-import { setEyeState } from './eye-store.js'
+import { setEyeState, subscribe as subscribeEye } from './eye-store.js'
+import { createEyeRenderer } from './eye-renderer.js'
 import {
   subscribe as subscribeAnim,
   getState as getAnimState,
@@ -156,6 +157,24 @@ export async function createViewport(container, { onRigSelect, onRigSave } = {})
     setPose(samplePose(jointNameList))
     setEyeState(sampleEyeState())
   })
+
+  // ── Eye display renderer ──
+  // If the rig defines a display (see rig.yaml `display:`), create an
+  // offscreen Canvas2D eye renderer, bind its canvas as a CanvasTexture,
+  // and subscribe to eye-store so the viewport eyes update in real time.
+  let eyeRenderer = null
+  let eyeTexture = null
+  let unsubscribeEyes = null
+  if (rig?.display) {
+    eyeRenderer = createEyeRenderer()
+    eyeTexture = new THREE.CanvasTexture(eyeRenderer.canvas)
+    eyeTexture.colorSpace = THREE.SRGBColorSpace
+    rig.display.setTexture(eyeTexture)
+    unsubscribeEyes = subscribeEye((state) => {
+      eyeRenderer.render(state)
+      eyeTexture.needsUpdate = true
+    })
+  }
 
   // ── Joint controls (click-to-select + drag-to-rotate) ──
   const jointControls = attachJointControls({
@@ -313,6 +332,9 @@ export async function createViewport(container, { onRigSelect, onRigSave } = {})
       }
       rigEdit.dispose()
       jointControls.dispose()
+      unsubscribeEyes?.()
+      eyeRenderer?.dispose()
+      eyeTexture?.dispose()
       unsubscribePose()
       unsubscribeAnim()
       controls.dispose()

@@ -15,6 +15,7 @@
  *       active: true | false | 'random',
  *       joints: { [name]: { position: number | string } },
  *       eyes:   { expression?, pupilX?, pupilY?, openness? },
+ *       sound:  string | null,  // sound filename to trigger at this keyframe
  *     },
  *     ...
  *   ]
@@ -119,6 +120,7 @@ export function loadDoc(doc) {
       active: kf.active ?? true,
       joints: deepClone(kf.joints || {}),
       eyes: deepClone(kf.eyes || {}),
+      sound: kf.sound || null,
     }))
     .sort((a, b) => a.time - b.time)
   // If the imported doc carries its own duration, honor it; otherwise
@@ -158,7 +160,7 @@ export function setDocDuration(seconds) {
  * captures the current pose/eye state; otherwise the keyframe is empty
  * and inherits from neighbors via the interpolator's carry-forward.
  */
-export function addKeyframe({ time, transition = 'linear', joints = {}, eyes = {} } = {}) {
+export function addKeyframe({ time, transition = 'linear', joints = {}, eyes = {}, sound = null } = {}) {
   const kf = {
     id: _nextId++,
     time: Number(time) || 0,
@@ -166,6 +168,7 @@ export function addKeyframe({ time, transition = 'linear', joints = {}, eyes = {
     active: true,
     joints: deepClone(joints),
     eyes: deepClone(eyes),
+    sound: sound || null,
   }
   _doc.keyframes = [..._doc.keyframes, kf].sort((a, b) => a.time - b.time)
   _notify()

@@ -86,10 +86,11 @@
           class="tl-kf"
           :class="{ 'tl-kf-selected': kf.id === selectedId }"
           :style="{ left: toPct(kf.time) + '%' }"
-          :title="`t=${kf.time.toFixed(2)}s · ${kf.transition}`"
+          :title="`t=${kf.time.toFixed(2)}s · ${kf.transition}${kf.sound ? ' · ' + kf.sound : ''}`"
           @pointerdown.stop="onKfDown($event, kf)"
         >
           <div class="tl-kf-shape" :class="'tl-kf-' + kf.transition"></div>
+          <div v-if="kf.sound" class="tl-kf-sound-dot"></div>
         </div>
 
         <!-- Playhead -->
@@ -129,6 +130,25 @@
         <option value="false">false</option>
         <option value="random">random</option>
       </select>
+      <span class="tl-sep-sm"></span>
+      <span class="tl-label">sound</span>
+      <input
+        class="tl-input-sound"
+        type="text"
+        list="sound-options"
+        placeholder="none"
+        :value="selectedKf.sound || ''"
+        @change="updateSound($event.target.value)"
+      />
+      <datalist id="sound-options">
+        <option v-for="s in soundFiles" :key="s" :value="s">{{ s }}</option>
+      </datalist>
+      <button
+        v-if="selectedKf.sound"
+        class="bp-btn text-xs"
+        @click="updateSound('')"
+        title="Clear sound"
+      >✕</button>
     </div>
   </div>
 </template>
@@ -159,6 +179,7 @@ import { TRANSITIONS } from '../viewport/interpolator.js'
 const state = ref(getState())
 let unsubscribe = null
 const trackRef = ref(null)
+const soundFiles = ref([])
 
 const selectedId = ref(null)
 const selectedKf = computed(() =>
@@ -167,9 +188,13 @@ const selectedKf = computed(() =>
 
 const transitions = TRANSITIONS
 
-onMounted(() => {
+onMounted(async () => {
   state.value = getState()
   unsubscribe = subscribe((s) => { state.value = s })
+  try {
+    const res = await fetch('/api/animations/sounds')
+    if (res.ok) soundFiles.value = await res.json()
+  } catch { /* non-critical */ }
 })
 onBeforeUnmount(() => {
   unsubscribe?.()
@@ -317,6 +342,10 @@ function updateActive(v) {
   if (!selectedId.value) return
   const val = v === 'true' ? true : v === 'false' ? false : 'random'
   updateKeyframe(selectedId.value, { active: val })
+}
+function updateSound(v) {
+  if (!selectedId.value) return
+  updateKeyframe(selectedId.value, { sound: v || null })
 }
 </script>
 
@@ -468,6 +497,24 @@ function updateActive(v) {
   font-variant-numeric: tabular-nums;
 }
 .tl-select {
+  background: var(--bg-0, #0b0d10);
+  border: 1px solid var(--border, #1e2328);
+  color: var(--fg-0, #d8dee8);
+  font: inherit;
+  padding: 1px 4px;
+}
+.tl-kf-sound-dot {
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ff9f43;
+}
+.tl-input-sound {
+  width: 140px;
   background: var(--bg-0, #0b0d10);
   border: 1px solid var(--border, #1e2328);
   color: var(--fg-0, #d8dee8);

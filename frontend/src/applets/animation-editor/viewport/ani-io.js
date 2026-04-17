@@ -31,7 +31,6 @@ export function editorDocToAni(doc) {
   // runtime doesn't need it but preserving it round-trips the user's
   // intended clip length even when no keyframe sits at the end.
   if (typeof doc.duration === 'number') out.duration = doc.duration
-  if (doc.sound) out.sound = doc.sound
   const kfs = [...doc.keyframes].sort((a, b) => a.time - b.time)
   const aniKfs = []
   let prevT = 0
@@ -60,6 +59,8 @@ export function editorDocToAni(doc) {
     const { left, right } = eyesToAni(kf.eyes || {}, kf._extraLeft, kf._extraRight)
     if (left) aniKf.left_eye = left
     if (right) aniKf.right_eye = right
+    // Per-keyframe sound trigger.
+    if (kf.sound) aniKf.sound = kf.sound
     aniKfs.push(aniKf)
   })
   out.keyframes = aniKfs
@@ -105,6 +106,10 @@ export function aniToEditorDoc(ani) {
     duration: typeof ani.duration === 'number' ? ani.duration : undefined,
     keyframes: [],
   }
+  // Legacy: top-level "sound" field triggers at start — migrate it to the
+  // first keyframe so it round-trips as per-keyframe sound.
+  const topLevelSound = ani.sound ?? null
+
   let absT = 0
   const kfs = Array.isArray(ani.keyframes) ? ani.keyframes : []
   kfs.forEach((kf, i) => {
@@ -117,6 +122,7 @@ export function aniToEditorDoc(ani) {
       active: kf.active ?? true,
       joints: kf.joints ? cloneJoints(kf.joints) : {},
       eyes: eyesFromAni(kf.left_eye, kf.right_eye),
+      sound: kf.sound || (i === 0 ? topLevelSound : null),
       // Preserve unknown eye fields so export is a faithful round-trip.
       _extraLeft: stripKnownEyeKeys(kf.left_eye),
       _extraRight: stripKnownEyeKeys(kf.right_eye),

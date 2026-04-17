@@ -59,10 +59,6 @@
         <span class="ei-val">{{ state.openness.toFixed(2) }}</span>
       </div>
 
-      <div class="ei-row">
-        <span class="ei-label">blink</span>
-        <button class="bp-btn text-xs" @click="triggerBlink">BLINK</button>
-      </div>
     </div>
   </div>
 </template>
@@ -92,12 +88,6 @@ function set(key, value) {
 }
 function reset() {
   resetEyeState()
-}
-// Blink is a momentary pulse: toggle true then back to false next frame.
-// Timeline (step 6) will convert these pulses into discrete keyframes.
-function triggerBlink() {
-  setEyeField('blink', true)
-  requestAnimationFrame(() => setEyeField('blink', false))
 }
 </script>
 

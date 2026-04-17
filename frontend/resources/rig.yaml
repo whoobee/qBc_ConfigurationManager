@@ -57,7 +57,7 @@ joints:
     limits: [-45, 45]
     model:
       name: front_leg_right
-      translate: [75.76106881206042, -1.599999999999973, 116.24670133382517]
+      translate: [75.76106881206042, -1.599999999999973, 116.24670133382519]
       rotate: [179.99999999999994, -69.09792712561469, 179.99999999999997]
   left_front_leg:
     parent: null
@@ -66,13 +66,9 @@ joints:
     limits: [-45, 45]
     model:
       name: front_leg_right
-      translate: [76.0632333814306, 1.5999920896584712, 115.29493013260597]
+      translate: [76.06323338143056, 1.5999920896584854, 115.29493013260591]
       mirror: y
       rotate: [-179.99997642904216, -69.4039215037587, -179.9999731800308]
-  # NOTE: back leg naming matches the front-leg / servo convention —
-  # robot's left side = +Y, robot's right side = −Y. The underlying OBJ
-  # is qB-BackLeg-Left.obj so the +Y (left) entry uses it unmodified and
-  # the −Y (right) entry mirrors it across Y.
   right_back_leg:
     parent: null
     pivot: [-25.21731537132371, -50.000000000000036, 68.94933050343843]
@@ -90,3 +86,8 @@ joints:
       name: back_leg_left
       translate: [-0.40000000000000213, 1.6000000000000014, 0]
       mirror: y
+display:
+  joint: neck
+  size: [96, 58]
+  offset: [176.88802673524262, -0.8866230760804735, 111.02255028994614]
+  rotate: [-142.84685490869643, 87.76699433155643, -127.97155072347395]

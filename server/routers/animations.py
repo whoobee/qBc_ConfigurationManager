@@ -20,6 +20,9 @@ router = APIRouter()
 ANIMATIONS_DIR = (
     Path(__file__).parent.parent.parent.parent / "qBc_Animation" / "animations"
 )
+SOUNDS_DIR = (
+    Path(__file__).parent.parent.parent.parent / "qBc_Audio" / "resources" / "sounds"
+)
 
 # Animation filenames are lowercase letters, digits, underscores.
 # Matches how qBc_Animation normalizes names (name.lower()).
@@ -73,6 +76,18 @@ def _safe_path(name: str) -> Path:
             detail="Invalid animation name (use lowercase letters, digits, underscores)",
         )
     return ANIMATIONS_DIR / f"{name}.ani"
+
+
+@router.get("/sounds")
+async def list_sounds():
+    """Return available sound filenames from qBc_Audio/resources/sounds/."""
+    if not SOUNDS_DIR.exists():
+        return []
+    extensions = {".wav", ".mp3", ".ogg", ".flac"}
+    return sorted(
+        f.name for f in SOUNDS_DIR.iterdir()
+        if f.is_file() and f.suffix.lower() in extensions
+    )
 
 
 @router.get("/")

@@ -112,6 +112,15 @@ function syncBodyMeshToConfig(cfg, body) {
   else delete cfg.body.model.rotate
 }
 
+function syncDisplayToConfig(cfg, displayMesh) {
+  if (!cfg.display || !displayMesh) return
+  const p = displayMesh.position
+  cfg.display.offset = [p.x, p.y, p.z]
+  const deg = rotationToDegOrNull(displayMesh)
+  if (deg) cfg.display.rotate = deg
+  else cfg.display.rotate = [0, 0, 0]
+}
+
 /**
  * Update the three.js state of a joint so it reflects the given pivot
  * value in the config. Also compensates this joint's mesh (keeps
@@ -206,6 +215,19 @@ function applyConfigToScene(cfg, rig) {
     joint.meshGroup.position.copy(off)
     joint.meshGroup.rotation.set(0, 0, 0)
   }
+
+  // ── Display ──
+  if (cfg.display && rig.display?.mesh) {
+    const doff = cfg.display.offset || [0, 0, 0]
+    const drot = cfg.display.rotate || [0, 0, 0]
+    rig.display.mesh.position.set(doff[0], doff[1], doff[2])
+    rig.display.mesh.rotation.set(
+      (drot[0] * Math.PI) / 180,
+      (drot[1] * Math.PI) / 180,
+      (drot[2] * Math.PI) / 180,
+      'XYZ',
+    )
+  }
 }
 
 /**
@@ -295,6 +317,9 @@ export function createRigEditMode(viewport, { onSelect, onSave } = {}) {
     if (selected.kind === 'jointPivot') {
       return pivotProxies.get(selected.name)
     }
+    if (selected.kind === 'display') {
+      return selected.object // translate and rotate both on the mesh itself
+    }
     return gizmoMode === 'rotate' ? selected.restRotGroup : selected.meshGroup
   }
 
@@ -303,6 +328,8 @@ export function createRigEditMode(viewport, { onSelect, onSave } = {}) {
     if (selected) {
       if (selected.kind === 'jointPivot') {
         pivotMarkers.get(selected.name)?.material.color.setHex(PIVOT_COLOR)
+      } else if (selected.kind === 'display') {
+        // nothing to clear — no emissive outline on BasicMaterial
       } else {
         setMeshOutline(selected.meshGroup, false)
       }
@@ -324,6 +351,9 @@ export function createRigEditMode(viewport, { onSelect, onSave } = {}) {
       proxy.quaternion.identity()
       tc.attach(proxy)
       tc.setMode('translate') // rotate on pivot is meaningless
+    } else if (next.kind === 'display') {
+      tc.attach(next.object)
+      tc.setMode(gizmoMode)
     } else {
       setMeshOutline(next.meshGroup, true)
       tc.attach(tcTargetForSelection())
@@ -336,6 +366,9 @@ export function createRigEditMode(viewport, { onSelect, onSave } = {}) {
     if (!selected) return null
     if (selected.kind === 'body') {
       return { kind: 'body', entry: liveConfig.body }
+    }
+    if (selected.kind === 'display') {
+      return { kind: 'display', entry: liveConfig.display }
     }
     if (selected.kind === 'jointMesh') {
       return {
@@ -379,6 +412,8 @@ export function createRigEditMode(viewport, { onSelect, onSave } = {}) {
     if (!selected) return
     if (selected.kind === 'body') {
       syncBodyMeshToConfig(liveConfig, rig.body)
+    } else if (selected.kind === 'display') {
+      syncDisplayToConfig(liveConfig, rig.display?.mesh)
     } else if (selected.kind === 'jointMesh') {
       syncJointMeshToConfig(liveConfig, selected.name, rig.joints.get(selected.name))
     }
@@ -400,6 +435,7 @@ export function createRigEditMode(viewport, { onSelect, onSave } = {}) {
     for (const [name, joint] of rig.joints) {
       syncJointMeshToConfig(liveConfig, name, joint)
     }
+    syncDisplayToConfig(liveConfig, rig.display?.mesh)
   }
 
   // ── Picking ──
@@ -450,6 +486,11 @@ export function createRigEditMode(viewport, { onSelect, onSave } = {}) {
             kind: 'body',
             meshGroup: rig.body.meshGroup,
             restRotGroup: rig.body.restRotGroup,
+          })
+        } else if (e.kind === 'display') {
+          setSelected({
+            kind: 'display',
+            object: rig.display.mesh,
           })
         } else if (e.kind === 'jointMesh') {
           const j = rig.joints.get(e.jointName)
