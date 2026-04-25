@@ -1,5 +1,5 @@
 <template>
-  <div class="palette">
+  <div class="palette" :class="{ 'drawer-open': open }">
     <div class="palette-header">
       <span class="text-accent text-xs mono">NODE PALETTE</span>
     </div>
@@ -28,6 +28,7 @@
 import { ref, onMounted } from 'vue'
 
 const emit = defineEmits(['add-node'])
+defineProps({ open: { type: Boolean, default: false } })
 
 const categories = ref({
   Composites: ['Sequence', 'Selector', 'Parallel', 'RandomSelector'],
@@ -59,12 +60,29 @@ function onDrag(event, category, nodeName) {
 
 <style scoped>
 .palette {
-  width: 200px;
+  width: var(--bt-palette-width, 200px);
   flex-shrink: 0;
   border-right: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
   background: var(--bg-secondary);
+  transition: width var(--transition-med);
+}
+
+@media (max-width: 1100px) {
+  .palette {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 15;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.4);
+    transform: translateX(-100%);
+    transition: transform var(--transition-med);
+  }
+  .palette.drawer-open {
+    transform: translateX(0);
+  }
 }
 
 .palette-header {

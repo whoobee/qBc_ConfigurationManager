@@ -38,8 +38,22 @@
 
     <!-- Main editor area -->
     <div class="editor-body flex flex-1 overflow-hidden">
+      <!-- Drawer toggles (only visible on narrow screens via CSS) -->
+      <button
+        class="drawer-toggle drawer-toggle-left bp-btn text-xs"
+        :class="{ active: paletteOpen }"
+        @click="paletteOpen = !paletteOpen"
+        title="Toggle node palette"
+      >☰</button>
+      <button
+        class="drawer-toggle drawer-toggle-right bp-btn text-xs"
+        :class="{ active: propsOpen }"
+        @click="propsOpen = !propsOpen"
+        title="Toggle properties"
+      >⚙</button>
+
       <!-- Node palette -->
-      <NodePalette @add-node="addNodeToGraph" />
+      <NodePalette :open="paletteOpen" @add-node="addNodeToGraph" />
 
       <!-- LiteGraph canvas -->
       <div class="editor-canvas flex-1" ref="canvasContainer"></div>
@@ -58,6 +72,7 @@
       <!-- Property editor -->
       <PropertyEditor
         :node="selectedNode"
+        :open="propsOpen"
         @update="onPropertyUpdate"
       />
     </div>
@@ -81,6 +96,8 @@ const selectedNode = ref(null)
 const statusMsg = ref('')
 const statusClass = ref('')
 const validationErrors = ref([])
+const paletteOpen = ref(false)
+const propsOpen = ref(false)
 
 // Register BT nodes
 registerBTNodeTypes()
@@ -315,6 +332,25 @@ function setStatus(msg, type = '') {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  row-gap: 6px;
+  column-gap: 8px;
+  justify-content: flex-start;
+}
+.editor-toolbar > div {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+@media (max-width: 1100px) {
+  .editor-toolbar {
+    padding: 8px 10px;
+  }
+  .tree-name-input { width: 120px; }
+  .toolbar-sep { display: none; }
+}
+@media (max-width: 768px) {
+  .editor-toolbar { padding: 6px 8px; font-size: 0.7rem; }
+  .tree-name-label { display: none; }
 }
 
 .editor-body {
@@ -327,8 +363,12 @@ function setStatus(msg, type = '') {
 
 .editor-canvas {
   min-height: 0;
+  min-width: 0;
   position: relative;
+  overflow: hidden;
 }
+
+.editor-body { position: relative; }
 
 .bp-select {
   background: var(--bg-card);
@@ -382,8 +422,8 @@ function setStatus(msg, type = '') {
 .validation-panel {
   position: absolute;
   bottom: 12px;
-  left: 220px;
-  right: 220px;
+  left: calc(var(--bt-palette-width, 200px) + 20px);
+  right: calc(var(--bt-props-width, 280px) + 20px);
   background: var(--bg-card);
   border: 1px solid var(--glow-danger);
   border-radius: var(--radius-md);
@@ -391,6 +431,12 @@ function setStatus(msg, type = '') {
   z-index: 20;
   max-height: 200px;
   overflow-y: auto;
+}
+@media (max-width: 1100px) {
+  .validation-panel {
+    left: 12px;
+    right: 12px;
+  }
 }
 .validation-header {
   display: flex;
@@ -409,4 +455,22 @@ function setStatus(msg, type = '') {
   border-bottom: 1px solid var(--border-subtle);
 }
 .validation-list li:last-child { border-bottom: none; }
+
+.drawer-toggle {
+  display: none;
+  position: absolute;
+  top: 8px;
+  z-index: 20;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+.drawer-toggle-left { left: 8px; }
+.drawer-toggle-right { right: 8px; }
+.drawer-toggle.active { border-color: var(--glow-primary); color: var(--glow-primary); }
+@media (max-width: 1100px) {
+  .drawer-toggle { display: inline-flex; align-items: center; justify-content: center; }
+}
 </style>

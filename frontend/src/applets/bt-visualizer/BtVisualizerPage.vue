@@ -18,8 +18,14 @@
 
     <!-- LiteGraph canvas + Blackboard panel -->
     <div class="viz-content flex flex-1 overflow-hidden">
+      <button
+        class="bb-toggle bp-btn text-xs"
+        :class="{ active: bbOpen }"
+        @click="bbOpen = !bbOpen"
+        title="Toggle blackboard"
+      >BB</button>
       <div class="viz-canvas flex-1" ref="canvasContainer"></div>
-      <BlackboardPanel :blackboard="blackboard" />
+      <BlackboardPanel :blackboard="blackboard" :open="bbOpen" />
     </div>
   </div>
 </template>
@@ -43,6 +49,7 @@ const tickNum = ref(0)
 const blackboard = ref({})
 const connLabel = ref('CONNECTING...')
 const connClass = ref('text-dim')
+const bbOpen = ref(false)
 
 let unsubState = null
 let unsubTree = null
@@ -133,6 +140,17 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  row-gap: 6px;
+  column-gap: 8px;
+  justify-content: flex-start;
+}
+.viz-toolbar > div {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+@media (max-width: 1100px) {
+  .viz-toolbar { padding: 8px 10px; }
 }
 
 .viz-content {
@@ -140,11 +158,31 @@ onBeforeUnmount(() => {
   border-top: none;
   border-radius: 0 0 var(--radius-md) var(--radius-md);
   background: var(--bg-primary);
+  position: relative;
 }
 
 .viz-canvas {
   min-height: 0;
+  min-width: 0;
   position: relative;
+  overflow: hidden;
+}
+
+.bb-toggle {
+  display: none;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 20;
+  width: 34px;
+  height: 30px;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1;
+}
+.bb-toggle.active { border-color: var(--glow-primary); color: var(--glow-primary); }
+@media (max-width: 1100px) {
+  .bb-toggle { display: inline-flex; align-items: center; justify-content: center; }
 }
 
 .status-ok { color: var(--glow-success) !important; }

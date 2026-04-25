@@ -1,5 +1,5 @@
 <template>
-  <div class="bb-panel">
+  <div class="bb-panel" :class="{ 'drawer-open': open }">
     <div class="bb-header">
       <span class="text-accent text-xs mono">BLACKBOARD</span>
     </div>
@@ -16,7 +16,7 @@
 <script setup>
 import { computed } from 'vue'
 
-const props = defineProps({ blackboard: Object })
+const props = defineProps({ blackboard: Object, open: { type: Boolean, default: false } })
 
 const entries = computed(() => {
   if (!props.blackboard) return []
@@ -52,6 +52,27 @@ function flattenObj(obj, prefix = '') {
   display: flex;
   flex-direction: column;
   background: var(--bg-secondary);
+  transition: width var(--transition-med);
+}
+
+@media (max-width: 1280px) {
+  .bb-panel { width: 320px; min-width: 260px; }
+}
+
+@media (max-width: 1100px) {
+  .bb-panel {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 15;
+    box-shadow: -2px 0 12px rgba(0, 0, 0, 0.4);
+    transform: translateX(100%);
+    transition: transform var(--transition-med);
+  }
+  .bb-panel.drawer-open {
+    transform: translateX(0);
+  }
 }
 
 .bb-header {

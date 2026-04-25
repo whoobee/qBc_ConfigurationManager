@@ -54,6 +54,11 @@
   --radius-md:      8px;
   --radius-lg:      12px;
 
+  /* ── Responsive panel widths (editors) ── */
+  --bt-palette-width:   200px;
+  --bt-props-width:     280px;
+  --anim-inspector-width: 340px;
+
   /* ── Transition ── */
   --transition-fast: 0.15s ease;
   --transition-med:  0.3s ease;
@@ -72,3 +77,26 @@
   --bt-running: #00d4ff;
   --bt-invalid: #666666;
 }
+
+@media (max-width: 1280px) {
+  :root {
+    --bt-palette-width:   160px;
+    --bt-props-width:     220px;
+    --anim-inspector-width: 280px;
+  }
+}
+
+@media (max-width: 1100px) {
+  :root {
+    --sidebar-width: var(--sidebar-collapsed-width);
+  }
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --bt-palette-width:   140px;
+    --bt-props-width:     180px;
+    --anim-inspector-width: 240px;
+  }
+}
+

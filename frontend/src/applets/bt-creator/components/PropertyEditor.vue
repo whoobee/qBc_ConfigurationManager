@@ -1,5 +1,5 @@
 <template>
-  <div class="props-panel">
+  <div class="props-panel" :class="{ 'drawer-open': open }">
     <div class="props-header">
       <span class="text-accent text-xs mono">PROPERTIES</span>
     </div>
@@ -67,7 +67,7 @@
 import { computed, ref, onMounted } from 'vue'
 import SearchableSelect from '../../../components/SearchableSelect.vue'
 
-const props = defineProps({ node: Object })
+const props = defineProps({ node: Object, open: { type: Boolean, default: false } })
 const emit = defineEmits(['update'])
 
 // Loaded options from backend
@@ -190,12 +190,29 @@ function onUpdateJson(key, value) {
 
 <style scoped>
 .props-panel {
-  width: 280px;
+  width: var(--bt-props-width, 280px);
   flex-shrink: 0;
   border-left: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
   background: var(--bg-secondary);
+  transition: width var(--transition-med);
+}
+
+@media (max-width: 1100px) {
+  .props-panel {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 15;
+    box-shadow: -2px 0 12px rgba(0, 0, 0, 0.4);
+    transform: translateX(100%);
+    transition: transform var(--transition-med);
+  }
+  .props-panel.drawer-open {
+    transform: translateX(0);
+  }
 }
 
 .props-header {

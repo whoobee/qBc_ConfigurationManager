@@ -71,7 +71,13 @@
           @rig-ready="onRigReady"
         />
       </div>
-      <div class="inspector-region">
+      <button
+        class="inspector-toggle bp-btn text-xs"
+        :class="{ active: inspectorOpen }"
+        @click="inspectorOpen = !inspectorOpen"
+        title="Toggle inspector"
+      >⚙</button>
+      <div class="inspector-region" :class="{ 'drawer-open': inspectorOpen }">
         <RigInspector
           v-if="rigMode"
           :selection="rigSelection"
@@ -116,6 +122,7 @@ const cameraMode = ref('persp')
 // Joint metadata (name, axis, limits) — published by the viewport once
 // the rig finishes loading, consumed by JointInspector to build sliders.
 const jointMeta = ref([])
+const inspectorOpen = ref(false)
 
 function onRigReady(meta) {
   jointMeta.value = meta
@@ -320,6 +327,8 @@ function onUpdateJointMeta(name, patch) {
   border-bottom: 1px solid var(--border, #1e2328);
   background: var(--bg-1, #10131a);
   flex-shrink: 0;
+  flex-wrap: wrap;
+  row-gap: 6px;
 }
 .anim-open-wrap {
   position: relative;
@@ -327,16 +336,17 @@ function onUpdateJointMeta(name, patch) {
 .anim-open-menu {
   position: absolute;
   top: 100%;
-  right: 0;
+  left: 0;
   margin-top: 4px;
   list-style: none;
   padding: 4px 0;
   min-width: 180px;
+  max-width: calc(100vw - 32px);
   max-height: 320px;
   overflow-y: auto;
   background: var(--bg-0, #0b0d10);
   border: 1px solid var(--border, #1e2328);
-  z-index: 20;
+  z-index: 30;
 }
 .anim-open-item {
   padding: 4px 10px;
@@ -344,6 +354,7 @@ function onUpdateJointMeta(name, patch) {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  white-space: nowrap;
 }
 .anim-open-item:hover {
   background: var(--bg-1, #10131a);
@@ -367,11 +378,42 @@ function onUpdateJointMeta(name, patch) {
   position: relative;
 }
 .inspector-region {
-  width: 340px;
+  width: var(--anim-inspector-width, 340px);
   flex-shrink: 0;
   border-left: 1px solid var(--border, #1e2328);
   background: var(--bg-1, #10131a);
   overflow-y: auto;
+  transition: width var(--transition-med);
+}
+.inspector-toggle {
+  display: none;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 20;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+.inspector-toggle.active { border-color: var(--glow-primary); color: var(--glow-primary); }
+@media (max-width: 1100px) {
+  .inspector-region {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 15;
+    box-shadow: -2px 0 12px rgba(0, 0, 0, 0.4);
+    transform: translateX(100%);
+    transition: transform var(--transition-med);
+  }
+  .inspector-region.drawer-open {
+    transform: translateX(0);
+  }
+  .inspector-toggle { display: inline-flex; align-items: center; justify-content: center; }
+  .anim-main { position: relative; }
 }
 .inspector-region :deep(.joint-inspector),
 .inspector-region :deep(.eye-inspector) {
