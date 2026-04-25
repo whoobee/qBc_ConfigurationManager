@@ -108,10 +108,10 @@ export function attachJointControls(viewport) {
   })
 
   // ── Pivot markers ──
-  // Always-visible small spheres at each joint's pivot point. Essential
-  // feedback while tuning rig.js so you can see where pivots land before
-  // clicking anything. Parented to the joint's pivot group, so they move
-  // with parent rotations (matching the pivot).
+  // Small spheres at each joint's pivot point. Hidden by default — only
+  // shown in Rig Mode (which creates its own markers in rig-edit-mode.js).
+  // Parented to the joint's pivot group, so they move with parent
+  // rotations (matching the pivot).
   const pivotMarkers = new Map() // name -> Mesh
   for (const [name, joint] of joints) {
     const geo = new THREE.SphereGeometry(PIVOT_MARKER_RADIUS, 12, 12)
@@ -123,6 +123,7 @@ export function attachJointControls(viewport) {
     })
     const marker = new THREE.Mesh(geo, mat)
     marker.renderOrder = 998
+    marker.visible = false
     marker.userData.pivotMarker = name
     joint.pivot.add(marker)
     pivotMarkers.set(name, marker)
@@ -240,8 +241,6 @@ export function attachJointControls(viewport) {
     if (!on) {
       setSelected(null)
       setMarkersVisible(false)
-    } else {
-      setMarkersVisible(true)
     }
   }
 

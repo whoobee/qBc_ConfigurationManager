@@ -106,7 +106,7 @@ export async function createViewport(container, { onRigSelect, onRigSave } = {})
     camera.aspect = currentAspect
     camera.updateProjectionMatrix()
     updateOrthoFrustum()
-    renderer.setSize(w, h, false)
+    renderer.setSize(w, h)
   }
 
   const resizeObserver = new ResizeObserver(() => {
