@@ -1,8 +1,10 @@
 """System status and control REST endpoints."""
 
+import asyncio
 import logging
 import re
 import subprocess
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, Request
@@ -16,6 +18,18 @@ LOADAVG_PATH = Path("/proc/loadavg")
 MEMINFO_PATH = Path("/proc/meminfo")
 UPTIME_PATH = Path("/proc/uptime")
 AXCL_SMI = "/usr/bin/axcl/axcl-smi"
+
+# axcl-smi can take ~50s to return on this device and ignores subprocess
+# timeouts (child processes survive SIGKILL until they finish). To keep the
+# event loop responsive we cache its result and refresh asynchronously in a
+# worker thread — the HTTP handler never blocks on it.
+AXCL_TTL = 30.0
+_AXCL_EMPTY = {
+    "available": False, "name": None, "temp_c": None, "cpu_pct": None,
+    "npu_pct": None, "mem_used_mb": None, "mem_total_mb": None, "mem_pct": None,
+    "cmm_used_mb": None, "cmm_total_mb": None, "cmm_pct": None, "processes": [],
+}
+_axcl_cache = {"data": dict(_AXCL_EMPTY), "ts": 0.0, "task": None}
 
 
 @router.get("/status")
@@ -37,13 +51,33 @@ async def get_topic_registry():
     return get_topic_registry()
 
 
+async def _refresh_axcl_cache():
+    try:
+        data = await asyncio.to_thread(_get_axcl_metrics)
+        _axcl_cache["data"] = data
+        _axcl_cache["ts"] = time.monotonic()
+    except Exception:
+        logger.exception("axcl metrics refresh failed")
+    finally:
+        _axcl_cache["task"] = None
+
+
 @router.get("/metrics")
 async def get_system_metrics():
-    """Get Raspberry Pi hardware metrics and AXCL accelerator stats."""
-    return {
-        "rpi": _get_rpi_metrics(),
-        "axcl": _get_axcl_metrics(),
-    }
+    """Get Raspberry Pi hardware metrics and AXCL accelerator stats.
+
+    RPi metrics are gathered in a worker thread (df subprocess can block).
+    AXCL metrics are served from a TTL cache; refreshes run in the background
+    so polling clients never wait on the slow axcl-smi binary.
+    """
+    rpi = await asyncio.to_thread(_get_rpi_metrics)
+
+    now = time.monotonic()
+    is_stale = (now - _axcl_cache["ts"]) >= AXCL_TTL
+    if is_stale and _axcl_cache["task"] is None:
+        _axcl_cache["task"] = asyncio.create_task(_refresh_axcl_cache())
+
+    return {"rpi": rpi, "axcl": _axcl_cache["data"]}
 
 
 @router.get("/logs")
