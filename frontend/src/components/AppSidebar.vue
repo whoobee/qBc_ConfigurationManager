@@ -80,6 +80,7 @@ const icons = {
   settings: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="3"/><path d="M10 1.5v2M10 16.5v2M1.5 10h2M16.5 10h2M3.4 3.4l1.4 1.4M15.2 15.2l1.4 1.4M3.4 16.6l1.4-1.4M15.2 4.8l1.4-1.4"/></svg>',
   compass: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="8"/><polygon points="7,13 9,9 13,7 11,11" fill="currentColor" opacity="0.5"/></svg>',
   animation: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="5" width="15" height="10" rx="1.5"/><line x1="2.5" y1="8" x2="17.5" y2="8"/><line x1="2.5" y1="12" x2="17.5" y2="12"/><circle cx="6" cy="6.5" r="0.6" fill="currentColor"/><circle cx="10" cy="6.5" r="0.6" fill="currentColor"/><circle cx="14" cy="6.5" r="0.6" fill="currentColor"/><circle cx="6" cy="13.5" r="0.6" fill="currentColor"/><circle cx="10" cy="13.5" r="0.6" fill="currentColor"/><circle cx="14" cy="13.5" r="0.6" fill="currentColor"/></svg>',
+  controls: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="5" y1="3" x2="5" y2="17"/><line x1="10" y1="3" x2="10" y2="17"/><line x1="15" y1="3" x2="15" y2="17"/><circle cx="5" cy="7" r="1.8" fill="currentColor"/><circle cx="10" cy="13" r="1.8" fill="currentColor"/><circle cx="15" cy="9" r="1.8" fill="currentColor"/></svg>',
 }
 
 function getIcon(name) {
