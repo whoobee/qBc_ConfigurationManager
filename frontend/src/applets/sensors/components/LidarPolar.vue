@@ -8,6 +8,7 @@
       <div class="row"><span class="k">Farthest</span><span class="v mono">{{ farthestText }}</span></div>
       <div class="row"><span class="k">Range</span>
         <select v-model.number="maxRangeMm" class="range-sel mono">
+          <option :value="400">0.4 m</option>
           <option :value="1000">1 m</option>
           <option :value="2000">2 m</option>
           <option :value="5000">5 m</option>
@@ -32,7 +33,7 @@ const props = defineProps({
   scan: { type: Object, default: () => ({ bins_mm: [], bin_deg: 10 }) },
 })
 
-const maxRangeMm = ref(2000)
+const maxRangeMm = ref(400)
 const canvas = ref(null)
 
 const bins = computed(() => {
