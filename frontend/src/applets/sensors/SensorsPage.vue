@@ -84,7 +84,7 @@ import MotorTable from './components/MotorTable.vue'
 
 const mqttStore = useMqttStore()
 
-const tof = ref({ left_mm: 0, right_mm: 0, back_mm: 0 })
+const tof = ref({ left_mm: 0, right_mm: 0, front_mm: 0, back_mm: 0 })
 const imu = ref({ roll: 0, pitch: 0, yaw: 0, qw: 1, qx: 0, qy: 0, qz: 0, ax: 0, ay: 0, az: 0 })
 const lidar = ref({ bins_mm: new Array(36).fill(0), bin_deg: 10 })
 const servos = ref({})   // keyed by joint_name

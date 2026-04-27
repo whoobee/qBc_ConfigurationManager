@@ -38,6 +38,7 @@ function mkCard(label, key, raw) {
 }
 
 const sensors = computed(() => [
+  mkCard('Front', 'front', props.tof.front_mm),
   mkCard('Left',  'left',  props.tof.left_mm),
   mkCard('Right', 'right', props.tof.right_mm),
   mkCard('Back',  'back',  props.tof.back_mm),
@@ -47,7 +48,7 @@ const sensors = computed(() => [
 <style scoped>
 .tof-panel {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
 
