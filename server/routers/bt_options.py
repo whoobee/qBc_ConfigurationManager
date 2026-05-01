@@ -18,6 +18,7 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 ANIMATIONS_DIR = PROJECT_ROOT / "qBc_Animation" / "animations"
 SOUNDS_DIR = PROJECT_ROOT / "qBc_Audio" / "resources" / "sounds"
 SERVO_CALIBRATION = PROJECT_ROOT / "qBc_Servos" / "servo_calibration.json"
+TREES_DIR = PROJECT_ROOT / "qBc_Behavior" / "trees"
 
 # Static options that don't need filesystem scanning
 OPERATORS = ["==", "!=", ">", "<", ">=", "<=", "in", "not_in", "exists"]
@@ -118,6 +119,13 @@ def _scan_sounds():
     return files
 
 
+def _scan_trees():
+    """Scan the behavior trees directory for .yaml descriptors."""
+    if not TREES_DIR.exists():
+        return []
+    return sorted(f.stem for f in TREES_DIR.glob("*.yaml") if f.is_file())
+
+
 def _get_joints():
     """Load joint names and ranges from servo calibration."""
     if not SERVO_CALIBRATION.exists():
@@ -153,4 +161,5 @@ async def get_bt_options():
         "output_topics": OUTPUT_TOPICS,
         "all_topics": sorted(set(INPUT_TOPICS + OUTPUT_TOPICS)),
         "blackboard_keys": BLACKBOARD_KEYS,
+        "trees": _scan_trees(),
     }

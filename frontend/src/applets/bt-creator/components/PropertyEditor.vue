@@ -83,6 +83,7 @@ const opts = ref({
   output_topics: [],
   all_topics: [],
   blackboard_keys: [],
+  trees: [],
 })
 
 onMounted(async () => {
@@ -151,6 +152,11 @@ function getOptions(key) {
   // -- SendCommand --
   if (nodeType === 'SendCommand' && key === 'topic') {
     return opts.value.all_topics
+  }
+
+  // -- CallSubtree --
+  if (nodeType === 'CallSubtree' && key === 'tree_path') {
+    return opts.value.trees
   }
 
   return null

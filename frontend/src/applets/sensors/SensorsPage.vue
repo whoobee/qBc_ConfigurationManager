@@ -281,6 +281,10 @@ onUnmounted(() => {
   font-family: var(--text-mono);
   color: var(--text-primary);
   margin-left: 4px;
+  display: inline-block;
+  min-width: 5ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .sensors-grid {

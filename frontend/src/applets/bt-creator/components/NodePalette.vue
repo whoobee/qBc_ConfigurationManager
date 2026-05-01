@@ -34,7 +34,9 @@ const categories = ref({
   Composites: ['Sequence', 'Selector', 'Parallel', 'RandomSelector'],
   Decorators: ['Inverter', 'Timeout', 'RunningIsSuccess', 'FailureIsSuccess', 'SuccessIsFailure', 'CooldownGuard'],
   Conditions: ['BlackboardCondition', 'EventCheck', 'HeartbeatCheck'],
-  Actions: ['PlayAnimation', 'PlayAudio', 'MoveJoint', 'SendCommand', 'WaitForEvent', 'TimerBehavior'],
+  Actions: ['PlayAnimation', 'PlayAudio', 'MoveJoint', 'SendCommand', 'DriveWheels', 'DriveDistance', 'WaitForEvent', 'TimerBehavior'],
+  Exploration: ['PickFreeDirection'],
+  Subtrees: ['CallSubtree'],
 })
 
 const categoryColors = {
@@ -42,6 +44,8 @@ const categoryColors = {
   Decorators: '#9b59b6',
   Conditions: '#f1c40f',
   Actions: '#2ecc71',
+  Exploration: '#e67e22',
+  Subtrees: '#16a085',
 }
 
 // Try to load from API
