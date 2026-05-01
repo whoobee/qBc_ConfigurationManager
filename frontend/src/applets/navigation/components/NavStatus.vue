@@ -123,14 +123,13 @@ const allReady = computed(() =>
 
 const isNavigating = computed(() => {
   const s = props.state.nav_state
-  return s === 'acquiring' || s === 'servoing' || s === 'recovery'
+  return s === 'navigating' || s === 'next'
 })
 
 const badgeColor = computed(() => {
   const s = props.state.nav_state
-  if (s === 'servoing') return 'green'
-  if (s === 'acquiring') return 'blue'
-  if (s === 'recovery') return 'yellow'
+  if (s === 'navigating') return 'green'
+  if (s === 'next') return 'blue'
   if (s === 'idle' && props.state.status === 'online') return 'dim'
   return 'red'
 })

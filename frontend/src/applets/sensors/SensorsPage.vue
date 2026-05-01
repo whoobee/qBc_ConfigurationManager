@@ -2,10 +2,24 @@
   <div class="sensors-page">
     <div class="page-header">
       <h2 class="page-title">Sensor Telemetry</h2>
-      <div class="freshness" :class="{ 'freshness--stale': stale }">
-        <span class="dot"></span>
-        {{ stale ? 'stale' : 'live' }}
-        <span class="mono age">{{ ageText }}</span>
+      <div class="header-right">
+        <label class="ctrl">
+          <span class="ctrl-label">Sample</span>
+          <select class="ctrl-select mono" v-model.number="sampleMs">
+            <option v-for="o in SAMPLE_OPTIONS" :key="o.v" :value="o.v">{{ o.label }}</option>
+          </select>
+        </label>
+        <label class="ctrl">
+          <span class="ctrl-label">Window</span>
+          <select class="ctrl-select mono" v-model.number="windowMs">
+            <option v-for="o in WINDOW_OPTIONS" :key="o.v" :value="o.v">{{ o.label }}</option>
+          </select>
+        </label>
+        <div class="freshness" :class="{ 'freshness--stale': stale }">
+          <span class="dot"></span>
+          {{ stale ? 'stale' : 'live' }}
+          <span class="mono age">{{ ageText }}</span>
+        </div>
       </div>
     </div>
 
@@ -19,7 +33,7 @@
           </svg>
           TOF Sensors
         </h3>
-        <TofPanel :tof="tof" />
+        <TofPanel :tof="tof" :sample-ms="sampleMs" :window-ms="windowMs" />
       </section>
 
       <section class="panel panel--imu">
@@ -31,7 +45,7 @@
           </svg>
           IMU
         </h3>
-        <ImuPanel :imu="imu" />
+        <ImuPanel :imu="imu" :sample-ms="sampleMs" :window-ms="windowMs" />
       </section>
 
       <!-- Row 2: Lidar full width -->
@@ -76,6 +90,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useMqttStore } from '../../stores/mqtt.js'
+import { watch } from 'vue'
 import TofPanel from './components/TofPanel.vue'
 import ImuPanel from './components/ImuPanel.vue'
 import LidarPolar from './components/LidarPolar.vue'
@@ -89,6 +104,29 @@ const imu = ref({ roll: 0, pitch: 0, yaw: 0, qw: 1, qx: 0, qy: 0, qz: 0, ax: 0, 
 const lidar = ref({ bins_mm: new Array(36).fill(0), bin_deg: 10 })
 const servos = ref({})   // keyed by joint_name
 const motors = ref({})   // keyed by motor name ("left" | "right")
+
+const SAMPLE_OPTIONS = [
+  { v: 50,   label: '50 ms' },
+  { v: 100,  label: '100 ms' },
+  { v: 250,  label: '250 ms' },
+  { v: 500,  label: '500 ms' },
+  { v: 1000, label: '1 s' },
+  { v: 2000, label: '2 s' },
+]
+const WINDOW_OPTIONS = [
+  { v: 10000,  label: '10 s' },
+  { v: 30000,  label: '30 s' },
+  { v: 60000,  label: '1 min' },
+  { v: 120000, label: '2 min' },
+  { v: 300000, label: '5 min' },
+]
+
+const STORAGE_KEY = 'sensors.chartCfg'
+const saved = (() => {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') } catch { return {} }
+})()
+const sampleMs = ref(saved.sampleMs ?? 100)
+const windowMs = ref(saved.windowMs ?? 30000)
 
 const lastUpdateMs = ref(0)
 const nowMs = ref(Date.now())
@@ -144,6 +182,15 @@ onMounted(() => {
   }))
 
   tickTimer = setInterval(() => { nowMs.value = Date.now() }, 250)
+
+  watch([sampleMs, windowMs], () => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        sampleMs: sampleMs.value,
+        windowMs: windowMs.value,
+      }))
+    } catch { /* ignore quota errors */ }
+  })
 })
 
 onUnmounted(() => {
@@ -161,9 +208,43 @@ onUnmounted(() => {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   margin-bottom: 16px;
   gap: 16px;
+  flex-wrap: wrap;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ctrl {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.ctrl-select {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.ctrl-select:focus,
+.ctrl-select:hover {
+  border-color: var(--glow-primary);
 }
 
 .page-title {

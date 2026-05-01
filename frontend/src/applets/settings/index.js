@@ -1,7 +1,7 @@
 export default {
   id: 'settings',
   name: 'Settings',
-  icon: 'sliders',
+  icon: 'settings',
   route: '/settings',
   component: () => import('./SettingsPage.vue'),
   order: 90,

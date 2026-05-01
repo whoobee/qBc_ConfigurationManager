@@ -1,5 +1,22 @@
 <template>
   <div class="motor-vector">
+    <div class="tof-row">
+      <div class="tof-cell">
+        <span class="tof-arrow">&#9650;</span>
+        <span class="tof-label mono">FRONT TOF</span>
+        <span class="tof-value mono" :class="tofClass(tof.front_mm)">
+          {{ formatTof(tof.front_mm) }}
+        </span>
+      </div>
+      <div class="tof-cell">
+        <span class="tof-arrow">&#9660;</span>
+        <span class="tof-label mono">BACK TOF</span>
+        <span class="tof-value mono" :class="tofClass(tof.back_mm)">
+          {{ formatTof(tof.back_mm) }}
+        </span>
+      </div>
+    </div>
+
     <canvas ref="canvas" width="240" height="240" class="vector-canvas"></canvas>
     <div class="motor-stats">
       <div class="stat-row">
@@ -44,7 +61,20 @@ import { ref, watch, onMounted } from 'vue'
 
 const props = defineProps({
   motor: { type: Object, default: () => ({}) },
+  tof: { type: Object, default: () => ({}) },
 })
+
+function formatTof(mm) {
+  if (mm == null || mm <= 0) return '-- mm'
+  return `${Math.round(mm)} mm`
+}
+
+function tofClass(mm) {
+  if (mm == null || mm <= 0) return 'tof--idle'
+  if (mm < 200) return 'tof--danger'
+  if (mm < 400) return 'tof--warn'
+  return 'tof--ok'
+}
 
 const canvas = ref(null)
 
@@ -188,10 +218,53 @@ onMounted(drawVector)
 
 <style scoped>
 .motor-vector {
-  display: flex;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
+  column-gap: 16px;
+  row-gap: 10px;
   align-items: center;
 }
+
+.tof-row {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.tof-cell {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+}
+
+.tof-arrow {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.tof-label {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+
+.tof-value {
+  margin-left: auto;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.tof-value.tof--ok { color: #00e676; }
+.tof-value.tof--warn { color: #ffd600; }
+.tof-value.tof--danger { color: #ff3366; text-shadow: 0 0 6px rgba(255, 51, 102, 0.4); }
+.tof-value.tof--idle { color: var(--text-dim); }
 
 .vector-canvas {
   border: 1px solid var(--border);

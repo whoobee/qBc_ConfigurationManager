@@ -1,6 +1,6 @@
 export default {
   id: 'bt-creator',
-  name: 'BT Creator',
+  name: 'BT Editor',
   icon: 'edit',
   route: '/bt-creator',
   component: () => import('./BtCreatorPage.vue'),

@@ -18,6 +18,7 @@ from server.ws_manager import WebSocketManager
 from server.services.heartbeat_tracker import HeartbeatTracker
 from server.services.transcript_store import TranscriptStore
 from server.services.service_manager import ServiceManager
+from server.services.fan_controller import FanController
 from server.routers import trees, system, settings, navigation, bt_options, ai, animations, rig
 
 logger = logging.getLogger("qBc_ConfigMgr.app")
@@ -45,6 +46,7 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
     heartbeat_tracker = HeartbeatTracker()
     transcript_store = TranscriptStore()
     service_manager = ServiceManager(mqtt_bridge=mqtt_bridge)
+    fan_controller = FanController()
 
     # Wire heartbeat tracker into MQTT bridge
     _orig_on_message = mqtt_bridge._on_message
@@ -152,10 +154,12 @@ def create_app(mqtt_broker: str = "localhost", mqtt_port: int = 1883) -> FastAPI
     @app.on_event("startup")
     async def startup():
         mqtt_bridge.start()
+        fan_controller.start()
         logger.info("qBc Configuration Manager started")
 
     @app.on_event("shutdown")
     async def shutdown():
+        fan_controller.stop()
         mqtt_bridge.stop()
         logger.info("qBc Configuration Manager stopped")
 

@@ -1,39 +1,62 @@
 <template>
-  <div class="tof-panel">
-    <div v-for="s in sensors" :key="s.key" class="tof-card" :class="{ 'tof-card--warn': s.warn, 'tof-card--danger': s.danger }">
-      <div class="tof-label">{{ s.label }}</div>
-      <div class="tof-value mono">
-        {{ s.value }} <span class="tof-unit">mm</span>
-      </div>
-      <div class="tof-bar">
-        <div class="tof-fill" :style="{ width: s.pct + '%' }"></div>
+  <div class="tof-wrap">
+    <div class="tof-panel">
+      <div v-for="s in sensors" :key="s.key" class="tof-card" :class="{ 'tof-card--warn': s.warn, 'tof-card--danger': s.danger }">
+        <div class="tof-label">{{ s.label }}</div>
+        <div class="tof-value mono">
+          {{ s.value }} <span class="tof-unit">mm</span>
+        </div>
+        <div class="tof-bar">
+          <div class="tof-fill" :style="{ width: s.pct + '%' }"></div>
+        </div>
       </div>
     </div>
+
+    <TimeSeriesChart
+      :series="chartSeries"
+      :window-ms="windowMs"
+      unit="mm"
+      :decimals="0"
+      :y-min="0"
+      :height="140"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, reactive, watch, onMounted, onUnmounted } from 'vue'
+import TimeSeriesChart from './TimeSeriesChart.vue'
 
 const props = defineProps({
   tof: { type: Object, default: () => ({}) },
+  sampleMs: { type: Number, default: 100 },
+  windowMs: { type: Number, default: 30000 },
 })
 
 // TOF range assumption: 30..1500 mm (VL53L0X typical short mode)
 const TOF_MAX_MM = 1500
 const WARN_MM = 400
 const DANGER_MM = 150
+// Anything at/above this is treated as "no target" (matches firmware sentinel
+// TOF_MAX_MM=65535 and rejects multipath spikes well past sensor range).
+const TOF_VALID_MAX_MM = 4000
+
+function isValidReading(raw) {
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 && n < TOF_VALID_MAX_MM
+}
 
 function mkCard(label, key, raw) {
-  const value = Number.isFinite(raw) ? Math.round(raw) : 0
-  const pct = Math.max(0, Math.min(100, (value / TOF_MAX_MM) * 100))
+  const valid = isValidReading(raw)
+  const value = valid ? Math.round(Number(raw)) : null
+  const pct = valid ? Math.max(0, Math.min(100, (value / TOF_MAX_MM) * 100)) : 0
   return {
     key,
     label,
-    value,
+    value: value != null ? value : '—',
     pct,
-    warn: value > 0 && value < WARN_MM,
-    danger: value > 0 && value < DANGER_MM,
+    warn: valid && value < WARN_MM,
+    danger: valid && value < DANGER_MM,
   }
 }
 
@@ -43,9 +66,55 @@ const sensors = computed(() => [
   mkCard('Right', 'right', props.tof.right_mm),
   mkCard('Back',  'back',  props.tof.back_mm),
 ])
+
+const SERIES_DEFS = [
+  { key: 'front', name: 'Front', color: '#00e676' },
+  { key: 'left',  name: 'Left',  color: '#00b0ff' },
+  { key: 'right', name: 'Right', color: '#ffd600' },
+  { key: 'back',  name: 'Back',  color: '#ff6e6e' },
+]
+
+const buffers = reactive({ front: [], left: [], right: [], back: [] })
+const chartSeries = computed(() => SERIES_DEFS.map(s => ({
+  name: s.name,
+  color: s.color,
+  data: buffers[s.key],
+})))
+
+let sampleTimer = null
+
+function tick() {
+  const now = Date.now()
+  const cutoff = now - props.windowMs - 1000
+  for (const def of SERIES_DEFS) {
+    const raw = props.tof[`${def.key}_mm`]
+    const buf = buffers[def.key]
+    if (isValidReading(raw)) {
+      buf.push({ t: now, v: Number(raw) })
+    }
+    // Drop invalid/out-of-range samples (e.g. firmware's 65535 sentinel)
+    // so they don't blow up the chart's auto-scaled Y axis.
+    while (buf.length && buf[0].t < cutoff) buf.shift()
+  }
+}
+
+function restart() {
+  if (sampleTimer) clearInterval(sampleTimer)
+  sampleTimer = setInterval(tick, props.sampleMs)
+}
+
+watch(() => props.sampleMs, restart)
+onMounted(restart)
+onUnmounted(() => { if (sampleTimer) clearInterval(sampleTimer) })
 </script>
 
 <style scoped>
+.tof-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .tof-panel {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

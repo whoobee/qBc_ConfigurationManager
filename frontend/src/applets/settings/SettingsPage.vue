@@ -168,6 +168,58 @@
           <span class="toggle-label mono">{{ neckInvert ? 'INVERTED' : 'NORMAL' }}</span>
         </label>
       </div>
+
+      <div class="volume-divider"></div>
+
+      <div class="volume-row">
+        <div class="volume-header">
+          <span class="volume-label">Intermediate Waypoint Stop Distance</span>
+          <span class="volume-hint">ToF threshold that marks an intermediate waypoint reached — smaller = robot can squeeze through tighter spaces during transit</span>
+        </div>
+        <div class="slider-group">
+          <input
+            type="range" min="50" max="1000" step="10"
+            :value="tofIntermediateMm"
+            @input="onTofIntermediateInput"
+            class="bp-slider"
+          />
+          <span class="volume-value mono">{{ tofIntermediateMm }} mm</span>
+        </div>
+      </div>
+
+      <div class="volume-divider"></div>
+
+      <div class="volume-row">
+        <div class="volume-header">
+          <span class="volume-label">Final Target Stop Distance</span>
+          <span class="volume-hint">ToF threshold that marks the final waypoint reached — larger = robot keeps more visible clearance from the destination object</span>
+        </div>
+        <div class="slider-group">
+          <input
+            type="range" min="50" max="1500" step="10"
+            :value="tofFinalTargetMm"
+            @input="onTofFinalInput"
+            class="bp-slider"
+          />
+          <span class="volume-value mono">{{ tofFinalTargetMm }} mm</span>
+        </div>
+      </div>
+
+      <div class="volume-divider"></div>
+
+      <div class="volume-row">
+        <div class="volume-header">
+          <span class="volume-label">Bench Test Mode</span>
+          <span class="volume-hint">Robot suspended for testing — disables odometry-based waypoint arrival and ToF collision guard so wheel spin doesn't trigger phantom progress. Cancel manually when done.</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" v-model="benchTestMode" @change="saveNavSettings" />
+          <span class="toggle-track">
+            <span class="toggle-thumb"></span>
+          </span>
+          <span class="toggle-label mono">{{ benchTestMode ? 'BENCH' : 'NORMAL' }}</span>
+        </label>
+      </div>
     </div>
 
     <!-- Status indicator -->
@@ -190,6 +242,9 @@ const selectedColor = ref('orange')
 const selectedLanguage = ref('en')
 const neckDeadzone = ref(0.03)
 const neckInvert = ref(false)
+const benchTestMode = ref(false)
+const tofIntermediateMm = ref(150)
+const tofFinalTargetMm = ref(300)
 const showSaved = ref(false)
 
 const languages = [
@@ -342,6 +397,9 @@ async function loadNavSettings() {
       const data = await resp.json()
       neckDeadzone.value = data.neck_deadzone ?? 0.03
       neckInvert.value = data.neck_invert ?? false
+      benchTestMode.value = data.bench_test_mode ?? false
+      tofIntermediateMm.value = data.tof_intermediate_mm ?? 150
+      tofFinalTargetMm.value = data.tof_final_target_mm ?? 300
     }
   } catch (e) {
     console.warn('[settings] Failed to load navigation:', e)
@@ -356,6 +414,9 @@ async function saveNavSettings() {
       body: JSON.stringify({
         neck_deadzone: neckDeadzone.value,
         neck_invert: neckInvert.value,
+        bench_test_mode: benchTestMode.value,
+        tof_intermediate_mm: tofIntermediateMm.value,
+        tof_final_target_mm: tofFinalTargetMm.value,
       }),
     })
     if (resp.ok) {
@@ -369,13 +430,27 @@ async function saveNavSettings() {
 
 function onDeadzoneInput(e) {
   neckDeadzone.value = Number(e.target.value)
+  debouncedNavPatch({ neck_deadzone: neckDeadzone.value })
+}
+
+function onTofIntermediateInput(e) {
+  tofIntermediateMm.value = Number(e.target.value)
+  debouncedNavPatch({ tof_intermediate_mm: tofIntermediateMm.value })
+}
+
+function onTofFinalInput(e) {
+  tofFinalTargetMm.value = Number(e.target.value)
+  debouncedNavPatch({ tof_final_target_mm: tofFinalTargetMm.value })
+}
+
+function debouncedNavPatch(payload) {
   if (navSaveTimeout) clearTimeout(navSaveTimeout)
   navSaveTimeout = setTimeout(async () => {
     try {
       const resp = await fetch('/api/settings/navigation', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ neck_deadzone: neckDeadzone.value }),
+        body: JSON.stringify(payload),
       })
       if (resp.ok) {
         showSaved.value = true
@@ -418,6 +493,9 @@ onMounted(() => {
       const data = typeof payload === 'string' ? JSON.parse(payload) : payload
       if (data.neck_deadzone != null) neckDeadzone.value = data.neck_deadzone
       if (data.neck_invert != null) neckInvert.value = data.neck_invert
+      if (data.bench_test_mode != null) benchTestMode.value = data.bench_test_mode
+      if (data.tof_intermediate_mm != null) tofIntermediateMm.value = data.tof_intermediate_mm
+      if (data.tof_final_target_mm != null) tofFinalTargetMm.value = data.tof_final_target_mm
     } catch (e) { /* ignore */ }
   })
 })

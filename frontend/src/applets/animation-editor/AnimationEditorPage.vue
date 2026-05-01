@@ -46,10 +46,10 @@
             <input type="checkbox" :checked="armed" @change="armed = $event.target.checked" />
             ARM
           </label>
-          <button class="bp-btn text-xs text-accent" @click="enterRigMode">RIG MODE</button>
+          <button class="bp-btn text-xs text-accent" @click="enterRigMode">RIGGING MODE</button>
         </template>
         <template v-else>
-          <span class="mono text-xs text-accent">RIG MODE — M:move  R:rotate  Esc:deselect  Ctrl+S:save</span>
+          <span class="mono text-xs text-accent">RIGGING MODE — M:move  R:rotate  Esc:deselect  Ctrl+S:save</span>
           <button class="bp-btn text-xs" @click="toggleCameraMode">
             {{ cameraMode === 'ortho' ? 'ORTHO' : 'PERSP' }}
           </button>
@@ -267,7 +267,7 @@ function enterRigMode() {
   viewportRef.value?.enableRigMode()
   rigMode.value = true
   rigSelection.value = null
-  statusLabel.value = 'RIG MODE'
+  statusLabel.value = 'RIGGING MODE'
 }
 
 function cancelRigMode() {

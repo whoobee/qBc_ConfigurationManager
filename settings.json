@@ -5,13 +5,14 @@
     "ai_reply_volume": 86
   },
   "display": {
-    "eye_color": "white"
+    "eye_color": "cyan"
   },
   "ai": {
     "language": "en"
   },
   "navigation": {
     "neck_deadzone": 0.35,
-    "neck_invert": false
+    "neck_invert": false,
+    "bench_test_mode": false
   }
 }

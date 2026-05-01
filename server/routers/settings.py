@@ -33,6 +33,9 @@ DEFAULT_SETTINGS = {
     "navigation": {
         "neck_deadzone": 0.03,
         "neck_invert": False,
+        "bench_test_mode": False,
+        "tof_intermediate_mm": 150,
+        "tof_final_target_mm": 300,
     },
 }
 
@@ -204,6 +207,17 @@ async def update_navigation_settings(request: Request):
 
     if "neck_invert" in body:
         settings["navigation"]["neck_invert"] = bool(body["neck_invert"])
+
+    if "bench_test_mode" in body:
+        settings["navigation"]["bench_test_mode"] = bool(body["bench_test_mode"])
+
+    if "tof_intermediate_mm" in body:
+        val = int(body["tof_intermediate_mm"])
+        settings["navigation"]["tof_intermediate_mm"] = max(50, min(1000, val))
+
+    if "tof_final_target_mm" in body:
+        val = int(body["tof_final_target_mm"])
+        settings["navigation"]["tof_final_target_mm"] = max(50, min(1500, val))
 
     _save_settings(settings)
     _broadcast_navigation(request, settings["navigation"])

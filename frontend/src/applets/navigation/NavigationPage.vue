@@ -5,15 +5,26 @@
 
     <!-- Main content: two-column layout -->
     <div class="nav-grid">
-      <!-- Left: Path image viewer -->
-      <div class="nav-panel nav-panel--wide">
-        <h3 class="section-title">
-          <svg class="section-icon" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M4 4l6 3 6-3v12l-6-3-6 3V4z"/>
-          </svg>
-          Path View
-        </h3>
-        <PathViewer />
+      <!-- Left: Path image viewer + AI transcript -->
+      <div class="nav-panel-stack">
+        <div class="nav-panel nav-panel--wide">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M4 4l6 3 6-3v12l-6-3-6 3V4z"/>
+            </svg>
+            Path View
+          </h3>
+          <PathViewer />
+        </div>
+        <div class="nav-panel nav-panel--ai">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10 2a4 4 0 014 4v1h1a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2h1V6a4 4 0 014-4zm-2 5h4V6a2 2 0 10-4 0v1zm-1 6a1 1 0 100-2 1 1 0 000 2zm6 0a1 1 0 100-2 1 1 0 000 2z"/>
+            </svg>
+            AI Transcript
+          </h3>
+          <AiTranscript :request="aiRequest" :response="aiResponse" :result="aiResult" />
+        </div>
       </div>
 
       <!-- Right: Motor vector + Command log -->
@@ -25,7 +36,16 @@
             </svg>
             Motor Control
           </h3>
-          <MotorVector :motor="motorData" />
+          <MotorVector :motor="motorData" :tof="tofData" />
+        </div>
+        <div class="nav-panel">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 4a4 4 0 110 8 4 4 0 010-8z"/>
+            </svg>
+            Manual Drive
+          </h3>
+          <Joystick :initial-max-rpm="25" @drive="onManualDrive" />
         </div>
         <div class="nav-panel nav-panel--grow">
           <h3 class="section-title">
@@ -50,6 +70,8 @@ import NavStatus from './components/NavStatus.vue'
 import PathViewer from './components/PathViewer.vue'
 import MotorVector from './components/MotorVector.vue'
 import CommandLog from './components/CommandLog.vue'
+import AiTranscript from './components/AiTranscript.vue'
+import Joystick from './components/Joystick.vue'
 
 const mqttStore = useMqttStore()
 
@@ -69,16 +91,28 @@ const motorData = ref({
   neck_deg: 0, description: 'stopped',
 })
 const logEntries = ref([])
+const aiRequest = ref(null)
+const aiResponse = ref(null)
+const aiResult = ref(null)
+const tofData = ref({ front_mm: null, back_mm: null })
 
 const MAX_LOG_ENTRIES = 100
 let unsubs = []
 
 function triggerExplore() {
+  // Reset transcript so the user sees the new request as it streams in
+  aiRequest.value = null
+  aiResponse.value = null
+  aiResult.value = null
   mqttStore.publish('robot/ai/explore/cmd', { command: 'explore' }, 1)
 }
 
 function cancelNavigation() {
   mqttStore.publish('robot/navigation/cmd', { command: 'cancel' }, 1)
+}
+
+function onManualDrive(cmd) {
+  mqttStore.publish('robot/wheels/cmd', cmd, 0)
 }
 
 let viewerInterval = null
@@ -90,6 +124,14 @@ onMounted(() => {
 
   unsubs.push(mqttStore.subscribe('robot/navigation/debug/motor', (topic, payload) => {
     motorData.value = payload
+  }))
+
+  unsubs.push(mqttStore.subscribe('robot/sensors/tof', (topic, payload) => {
+    if (!payload) return
+    tofData.value = {
+      front_mm: payload.front_mm ?? null,
+      back_mm: payload.back_mm ?? null,
+    }
   }))
 
   unsubs.push(mqttStore.subscribe('robot/navigation/debug/log', (topic, payload) => {
@@ -116,6 +158,7 @@ onMounted(() => {
   // AI explore result — narration and waypoints from VLM
   unsubs.push(mqttStore.subscribe('robot/ai/explore/result', (topic, payload) => {
     if (!payload) return
+    aiResult.value = payload
     const wp = payload.waypoints?.length ?? 0
     const narr = payload.analysis ? payload.analysis.substring(0, 80) : ''
     logEntries.value.push({
@@ -124,6 +167,18 @@ onMounted(() => {
       details: `${wp} waypoints — "${narr}${narr.length >= 80 ? '...' : ''}"`,
     })
     if (logEntries.value.length > MAX_LOG_ENTRIES) logEntries.value.shift()
+  }))
+
+  // AI explore transcript — request prompt + raw VLM response
+  unsubs.push(mqttStore.subscribe('robot/ai/explore/transcript', (topic, payload) => {
+    if (!payload) return
+    if (payload.phase === 'request') {
+      aiRequest.value = payload
+      aiResponse.value = null
+      aiResult.value = null
+    } else if (payload.phase === 'response') {
+      aiResponse.value = payload
+    }
   }))
 
   // AI voice/TTS events — playback commands
@@ -180,6 +235,16 @@ onUnmounted(() => {
 
 .nav-panel--wide {
   min-height: 400px;
+}
+
+.nav-panel--ai {
+  max-height: 360px;
+  display: flex;
+  flex-direction: column;
+}
+.nav-panel--ai > :last-child {
+  flex: 1;
+  min-height: 0;
 }
 
 .nav-panel-stack {
